@@ -24,6 +24,7 @@ def validate_partition(G: nx.Graph, partition: Partition) -> None:
     if extra_nodes:
         raise ValueError("Partition contains at least one unknown node.")
 
+
 def cluster_density(G: nx.Graph, cluster: Cluster) -> float:
     """
     Calculates the density of a single cluster in the graph.
@@ -37,6 +38,7 @@ def cluster_density(G: nx.Graph, cluster: Cluster) -> float:
         float: The density of the cluster.
     """
     return G.subgraph(cluster).number_of_edges() / len(cluster)
+
 
 def partition_density(G: nx.Graph, partition: Partition) -> float:
     """

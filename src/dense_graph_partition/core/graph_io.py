@@ -15,6 +15,7 @@ def load_graph_json(path: Path) -> nx.Graph:
 
     return graph
 
+
 def save_graph_json(G: nx.Graph, path: Path, name: str | None = None) -> None:
     data = {
         "name": name or G.graph.get("name", path.stem),
@@ -27,6 +28,7 @@ def save_graph_json(G: nx.Graph, path: Path, name: str | None = None) -> None:
     with path.open("w", encoding="utf-8") as file:
         json.dump(data, file, indent=2)
         file.write("\n")
+
 
 def load_instances_json(data_dir: Path) -> list[nx.Graph]:
     paths = sorted(data_dir.glob("*.json"))
