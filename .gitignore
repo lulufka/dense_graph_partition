@@ -1,7 +1,12 @@
-.venv/
+# Python
 __pycache__/
 .pytest_cache/
 
+# Environments
+.venv/
+.env
+
+# Project specific (data and results)
 results/*
 !results/README.md
 
@@ -10,9 +15,10 @@ data/*
 !data/tiny/
 !data/tiny/*.json
 
-.env
-.DS_Store
+# IDEs
 .idea/
 .vscode/
 
+# Other
+.DS_Store
 *.egg-info/
