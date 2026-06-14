@@ -2,7 +2,7 @@ import leidenalg
 import networkx as nx
 from pytest import mark
 
-from dense_graph_partition.algorithms.leiden import nx_to_igraph, membership_to_partition, leiden_mdgp_partition
+from dense_graph_partition.adapters.leiden import nx_to_igraph, membership_to_partition, leiden_mdgp_partition
 
 
 def test_nx_to_igraph_preserves_node_mapping() -> None:

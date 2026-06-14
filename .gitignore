@@ -1,5 +1,6 @@
 # Python
 __pycache__/
+*.py[cod]
 .pytest_cache/
 
 # Environments
@@ -22,3 +23,4 @@ data/*
 # Other
 .DS_Store
 *.egg-info/
+config.local.json

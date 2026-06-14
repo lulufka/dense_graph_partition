@@ -1,10 +1,7 @@
-from pathlib import Path
-from unittest.mock import Mock, patch
-
 import networkx as nx
 
-from dense_graph_partition.algorithms.kapoce import nx_to_kapoce_instance, parse_kapoce_edits, apply_edits, \
-    cluster_graph_to_partition, kapoce_partition
+from dense_graph_partition.adapters.kapoce import nx_to_kapoce_instance, parse_kapoce_edits, apply_edits, \
+    cluster_graph_to_partition
 
 
 def test_nx_to_kapoce_instance_uses_one_based_vertices() -> None:
