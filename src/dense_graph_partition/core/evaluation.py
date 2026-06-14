@@ -55,3 +55,17 @@ def partition_density(G: nx.Graph, partition: Partition) -> float:
     validate_partition(G, partition)
     return sum(cluster_density(G, cluster) for cluster in partition)
 
+
+def edge_density(G: nx.Graph) -> float:
+    n = G.number_of_nodes()
+    m = G.number_of_edges()
+    return 2 * m / (n * (n - 1))
+
+
+def partition_cluster_sizes(partition: Partition) -> list[int]:
+    return sorted((len(cluster) for cluster in partition), reverse=True)
+
+
+def partition_num_clusters(partition: Partition) -> int:
+    return len(partition)
+
