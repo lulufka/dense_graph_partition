@@ -7,6 +7,7 @@ import networkx as nx
 from dense_graph_partition.core.evaluation import partition_density
 from dense_graph_partition.core.types import Node, Partition
 from dense_graph_partition.local_search.result import LocalSearchResult
+from dense_graph_partition.local_search.search import build_local_search_result
 from dense_graph_partition.local_search.state import PartitionState, neighbors_in_cluster, state_to_partition, \
     build_partition_state
 
@@ -92,7 +93,7 @@ def delta_move_node(state: PartitionState, node: Node, target_cluster: int) -> f
         target_cluster (int): Destination cluster index.
 
     Returns:
-        float: The change in density. Positive values are improvements.
+        float: Change in density. Positive values are improvements.
     """
     source_cluster = state.cluster_of[node]
 
@@ -217,12 +218,6 @@ def apply_move_candidate(state: PartitionState, candidate: MoveCandidate) -> Non
     apply_move_node(state, candidate.node, candidate.target_cluster)
 
 
-def _result(G: nx.Graph, state: PartitionState, initial_score: float, num_moves: int, num_passes: int) -> LocalSearchResult:
-    final_partition = state_to_partition(state)
-    final_score = partition_density(G, final_partition)
-    return LocalSearchResult(final_partition, num_moves, num_passes, initial_score, final_score)
-
-
 def refine_partition_move_first(
         G: nx.Graph,
         partition: Partition,
@@ -270,7 +265,7 @@ def refine_partition_move_first(
         if not improved:
             break
 
-    return _result(G, state, initial_score, move_count, used_passes)
+    return build_local_search_result(G, state, initial_score, move_count, used_passes)
 
 
 def refine_partition_move_best(
@@ -323,7 +318,7 @@ def refine_partition_move_best(
         apply_move_candidate(state, best)
         move_count += 1
 
-    return _result(G, state, initial_score, move_count, used_passes)
+    return build_local_search_result(G, state, initial_score, move_count, used_passes)
 
 
 def refine_partition_move_plateau(
@@ -387,4 +382,4 @@ def refine_partition_move_plateau(
         if not changed:
             break
 
-    return _result(G, state, initial_score, move_count, used_passes)
+    return build_local_search_result(G, state, initial_score, move_count, used_passes)
