@@ -1,13 +1,11 @@
 import random
 from dataclasses import dataclass
-from typing import Optional
 
 import networkx as nx
 
 from dense_graph_partition.core.evaluation import partition_density
 from dense_graph_partition.core.types import Partition
-from dense_graph_partition.local_search.result import LocalSearchResult
-from dense_graph_partition.local_search.search import build_local_search_result
+from dense_graph_partition.local_search.result import LocalSearchResult, build_local_search_result
 from dense_graph_partition.local_search.state import PartitionState, build_partition_state
 
 
@@ -19,7 +17,7 @@ class MergeCandidate:
     Attributes:
         cluster_a (int): Index of the first cluster.
         cluster_b (int): Index of the second cluster.
-        delta (float): Expected change in density.
+        delta (float): Expected change in density. Positive values are improvements.
     """
     cluster_a: int
     cluster_b: int
@@ -127,14 +125,26 @@ def apply_merge_clusters(state: PartitionState, cluster_a: int, cluster_b: int) 
     state.internal_edges[cluster_b] = 0
 
 
+def apply_merge_candidate(state: PartitionState, candidate: MergeCandidate) -> None:
+    """
+    Applies a merge candidate to the current state.
+
+    Args:
+        state (PartitionState): Current local-search state.
+        candidate (MergeCandidate): Merge candidate to apply.
+    """
+    apply_merge_clusters(state, candidate.cluster_a, candidate.cluster_b)
+
+
 def neighboring_cluster_pairs(state: PartitionState) -> list[tuple[int, int]]:
     """
     Returns all cluster pairs that are connected by at least one edge.
+
     Args:
         state (PartitionState): Current local-search state.
 
     Returns:
-        list[tuple[int, int]]: List of neighboring cluster index pairs.
+        list[tuple[int, int]]: Sorted list of neighboring cluster index pairs.
     """
     pairs: set[tuple[int, int]] = set()
 
@@ -153,7 +163,7 @@ def neighboring_cluster_pairs(state: PartitionState) -> list[tuple[int, int]]:
 
         pairs.add((cluster_u, cluster_v))
 
-    return list(pairs)
+    return sorted(pairs)
 
 
 def best_merge_pair(state: PartitionState, epsilon: float = 1e-12) -> MergeCandidate | None:
@@ -165,7 +175,7 @@ def best_merge_pair(state: PartitionState, epsilon: float = 1e-12) -> MergeCandi
         epsilon (float): Numerical tolerance for improvement checks.
 
     Returns:
-        MergeCandidate | None: Best candidate merge, or ``None`` if no valid merge exists.
+        MergeCandidate | None: Best improving merge candidate, or ``None`` if no improving merge exists.
     """
     best: MergeCandidate | None = None
 
@@ -205,7 +215,13 @@ def first_improving_merge_pair(state: PartitionState, pairs: list[tuple[int, int
     return None
 
 
-def refine_partition_merge_first(G: nx.Graph, partition: Partition, max_passes: int = 1000, random_seed: Optional[int] = None, epsilon: float = 1e-12) -> LocalSearchResult:
+def refine_partition_merge_first(
+    G: nx.Graph,
+    partition: Partition,
+    max_passes: int = 1000,
+    random_seed: int | None = None,
+    epsilon: float = 1e-12,
+) -> LocalSearchResult:
     """
     Refines a partition using first-improvement cluster merges.
 
@@ -213,7 +229,7 @@ def refine_partition_merge_first(G: nx.Graph, partition: Partition, max_passes: 
         G (nx.Graph): Input graph.
         partition (Partition): Initial partition.
         max_passes (int): Maximum number of merge iterations.
-        random_seed (Optional[int]): Random seed for candidate pair shuffling.
+        random_seed (int | None): Random seed for candidate pair shuffling.
         epsilon (float): Numerical tolerance for improvement checks.
 
     Returns:
@@ -237,19 +253,24 @@ def refine_partition_merge_first(G: nx.Graph, partition: Partition, max_passes: 
         if candidate is None:
             break
 
-        apply_merge_clusters(state, candidate.cluster_a, candidate.cluster_b)
+        apply_merge_candidate(state, candidate)
         merge_count += 1
 
     return build_local_search_result(G, state, initial_score, merge_count, used_passes)
 
 
-def refine_partition_merge_best(G: nx.Graph, partition: Partition, max_passes: int = 1000, epsilon: float = 1e-12) -> LocalSearchResult:
+def refine_partition_merge_best(
+    G: nx.Graph,
+    partition: Partition,
+    max_passes: int = 1000,
+    epsilon: float = 1e-12,
+) -> LocalSearchResult:
     """
     Refines a partition using best-improvement cluster merges.
 
     Args:
         G (nx.Graph): Input graph.
-        partition (Partition): Initial partition
+        partition (Partition): Initial partition.
         max_passes (int): Maximum number of merge iterations.
         epsilon (float): Numerical tolerance for improvement checks.
 
@@ -270,7 +291,7 @@ def refine_partition_merge_best(G: nx.Graph, partition: Partition, max_passes: i
         if candidate is None:
             break
 
-        apply_merge_clusters(state, candidate.cluster_a, candidate.cluster_b)
+        apply_merge_candidate(state, candidate)
         merge_count += 1
 
     return build_local_search_result(G, state, initial_score, merge_count, used_passes)

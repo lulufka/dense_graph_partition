@@ -2,7 +2,8 @@ from dataclasses import dataclass
 
 import networkx as nx
 
-from dense_graph_partition.core.types import Partition, Cluster, Node
+from dense_graph_partition.core.evaluation import validate_partition
+from dense_graph_partition.core.types import Cluster, Node, Partition
 
 
 @dataclass
@@ -50,6 +51,8 @@ def build_partition_state(G: nx.Graph, partition: Partition) -> PartitionState:
     Returns:
         PartitionState: State containing clusters, node-to-cluster assignments, cluster sizes, and internal edge counts.
     """
+    validate_partition(G, partition)
+
     clusters: list[Cluster] = []
     cluster_of: dict[Node, int] = {}
 
@@ -64,6 +67,7 @@ def build_partition_state(G: nx.Graph, partition: Partition) -> PartitionState:
 
     return PartitionState(G, clusters, cluster_of, cluster_sizes, internal_edges)
 
+
 def state_to_partition(state: PartitionState) -> Partition:
     """
     Converts a partition state back into a regular partition.
@@ -76,13 +80,14 @@ def state_to_partition(state: PartitionState) -> Partition:
     """
     return [set(cluster) for cluster in state.clusters if cluster]
 
-def neighbors_in_cluster(state: PartitionState, node: int, cluster_index: int) -> int:
+
+def neighbors_in_cluster(state: PartitionState, node: Node, cluster_index: int) -> int:
     """
     Counts neighbors of a node inside a specific cluster.
 
     Args:
         state (PartitionState): Current local-search state.
-        node (int): Node whose neighbors are counted.
+        node (Node): Node whose neighbors are counted.
         cluster_index (int): Target cluster index.
 
     Returns:

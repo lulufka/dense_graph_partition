@@ -1,15 +1,12 @@
 import random
 from dataclasses import dataclass
-from typing import Optional
 
 import networkx as nx
 
 from dense_graph_partition.core.evaluation import partition_density
 from dense_graph_partition.core.types import Node, Partition
-from dense_graph_partition.local_search.result import LocalSearchResult
-from dense_graph_partition.local_search.search import build_local_search_result
-from dense_graph_partition.local_search.state import PartitionState, neighbors_in_cluster, state_to_partition, \
-    build_partition_state
+from dense_graph_partition.local_search.result import LocalSearchResult, build_local_search_result
+from dense_graph_partition.local_search.state import PartitionState, build_partition_state, neighbors_in_cluster
 
 
 @dataclass(frozen=True)
@@ -19,8 +16,8 @@ class MoveCandidate:
 
     Attributes:
         node (Node): Node that should be moved.
-        target_cluster (int | None): Destination cluster. If ``None``, the moves isolates the node as a singleton cluster.
-        delta (float): Expected change in density.
+        target_cluster (int | None): Destination cluster. If ``None``, the move isolates the node as a singleton cluster.
+        delta (float): Expected change in density. Positive values are improvements.
         isolate (bool): Whether the node should be isolated instead of moved to an existing cluster.
     """
     node: Node
@@ -31,14 +28,14 @@ class MoveCandidate:
 
 def delta_isolate_node(state: PartitionState, node: Node) -> float:
     """
-    Computes the score change when moving a node into a singleton cluster.
+    Computes the density change when isolating a node in a singleton cluster.
 
     Args:
         state (PartitionState): Current local-search state.
         node (Node): Node to isolate.
 
     Returns:
-        float: Change in density score.
+        float: Change in density. Positive values are improvements.
     """
     source_cluster = state.cluster_of[node]
     source_size = state.cluster_sizes[source_cluster]
@@ -69,7 +66,7 @@ def apply_isolate_node(state: PartitionState, node: Node) -> None:
     source_cluster = state.cluster_of[node]
 
     if state.cluster_sizes[source_cluster] <= 1:
-        raise ValueError("Cannot isolate a node that already is a singleton")
+        raise ValueError("Cannot isolate a node that already is a singleton.")
 
     degree_inside_source = neighbors_in_cluster(state, node, source_cluster)
 
@@ -123,7 +120,6 @@ def delta_move_node(state: PartitionState, node: Node, target_cluster: int) -> f
         new_source_score = (source_edges - degree_inside_source) / (source_size - 1)
 
     return (new_source_score + new_target_score) - (old_source_score + old_target_score)
-
 
 
 def apply_move_node(state: PartitionState, node: Node, target_cluster: int) -> None:
@@ -219,11 +215,11 @@ def apply_move_candidate(state: PartitionState, candidate: MoveCandidate) -> Non
 
 
 def refine_partition_move_first(
-        G: nx.Graph,
-        partition: Partition,
-        max_passes: int = 1000,
-        random_seed: Optional[int] = None,
-        epsilon: float = 1e-12
+    G: nx.Graph,
+    partition: Partition,
+    max_passes: int = 1000,
+    random_seed: int | None = None,
+    epsilon: float = 1e-12,
 ) -> LocalSearchResult:
     """
     Refines a partition using first-improvement node moves.
@@ -232,11 +228,11 @@ def refine_partition_move_first(
         G (nx.Graph): Input graph.
         partition (Partition): Initial partition.
         max_passes (int): Maximum number of passes over all nodes.
-        random_seed (Optional[int]): Random seed for node order shuffling.
+        random_seed (int | None): Random seed for node order shuffling.
         epsilon (float): Numerical tolerance for improvement checks.
 
     Returns:
-        LocalSearchResult: Final partition and local-search statistic.
+        LocalSearchResult: Final partition and local-search statistics.
     """
     rng = random.Random(random_seed)
     state = build_partition_state(G, partition)
@@ -269,11 +265,11 @@ def refine_partition_move_first(
 
 
 def refine_partition_move_best(
-        G: nx.Graph,
-        partition: Partition,
-        max_passes: int = 1000,
-        random_seed: Optional[int] = None,
-        epsilon: float = 1e-12
+    G: nx.Graph,
+    partition: Partition,
+    max_passes: int = 1000,
+    random_seed: int | None = None,
+    epsilon: float = 1e-12,
 ) -> LocalSearchResult:
     """
     Refines a partition using best-improvement node moves.
@@ -282,11 +278,11 @@ def refine_partition_move_best(
         G (nx.Graph): Input graph.
         partition (Partition): Initial partition.
         max_passes (int): Maximum number of passes over all nodes.
-        random_seed (Optional[int]): Random seed for node order shuffling.
+        random_seed (int | None): Random seed for node order shuffling.
         epsilon (float): Numerical tolerance for improvement checks.
 
     Returns:
-        LocalSearchResult: Final partition and local-search statistic.
+        LocalSearchResult: Final partition and local-search statistics.
     """
     rng = random.Random(random_seed)
     state = build_partition_state(G, partition)
@@ -314,7 +310,6 @@ def refine_partition_move_best(
         if best is None or best.delta <= epsilon:
             break
 
-
         apply_move_candidate(state, best)
         move_count += 1
 
@@ -322,11 +317,11 @@ def refine_partition_move_best(
 
 
 def refine_partition_move_plateau(
-        G: nx.Graph,
-        partition: Partition,
-        max_passes: int = 1000,
-        random_seed: Optional[int] = None,
-        epsilon: float = 1e-12
+    G: nx.Graph,
+    partition: Partition,
+    max_passes: int = 1000,
+    random_seed: int | None = None,
+    epsilon: float = 1e-12,
 ) -> LocalSearchResult:
     """
     Refines a partition using node moves with bounded plateau walking.
@@ -336,11 +331,11 @@ def refine_partition_move_plateau(
         G (nx.Graph): Input graph.
         partition (Partition): Initial partition.
         max_passes (int): Maximum number of passes over all nodes.
-        random_seed (Optional[int]): Random seed for node order shuffling.
+        random_seed (int | None): Random seed for node order shuffling.
         epsilon (float): Numerical tolerance for improvement checks.
 
     Returns:
-        LocalSearchResult: Final partition and local-search statistic.
+        LocalSearchResult: Final partition and local-search statistics.
     """
     rng = random.Random(random_seed)
     state = build_partition_state(G, partition)

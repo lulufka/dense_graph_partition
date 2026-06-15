@@ -4,8 +4,7 @@ import networkx as nx
 
 from dense_graph_partition.core.evaluation import partition_density
 from dense_graph_partition.core.types import Cluster, Partition
-from dense_graph_partition.local_search.result import LocalSearchResult
-from dense_graph_partition.local_search.search import build_local_search_result
+from dense_graph_partition.local_search.result import LocalSearchResult, build_local_search_result
 from dense_graph_partition.local_search.state import PartitionState, build_partition_state
 
 
@@ -18,7 +17,7 @@ class SplitCandidate:
         cluster_index (int): Index of the cluster to split.
         first_cluster (Cluster): First part of the split.
         second_cluster (Cluster): Second part of the split.
-        delta (float): Expected change in density.
+        delta (float): Expected change in density. Positive values are improvements.
     """
     cluster_index: int
     first_cluster: Cluster
@@ -26,7 +25,12 @@ class SplitCandidate:
     delta: float
 
 
-def split_delta(state: PartitionState, cluster_index: int, first_cluster: Cluster, second_cluster: Cluster) -> float:
+def delta_split_cluster(
+    state: PartitionState,
+    cluster_index: int,
+    first_cluster: Cluster,
+    second_cluster: Cluster,
+) -> float:
     """
     Computes the density change of replacing one cluster by two clusters.
 
@@ -60,7 +64,12 @@ def split_delta(state: PartitionState, cluster_index: int, first_cluster: Cluste
     return new_score - old_score
 
 
-def apply_split(state: PartitionState, cluster_index: int, first_cluster: Cluster, second_cluster: Cluster) -> None:
+def apply_split_cluster(
+    state: PartitionState,
+    cluster_index: int,
+    first_cluster: Cluster,
+    second_cluster: Cluster,
+) -> None:
     """
     Splits one cluster into two new clusters. The original cluster is left as an empty slot.
 
@@ -118,7 +127,7 @@ def apply_split_candidate(state: PartitionState, candidate: SplitCandidate) -> N
         state (PartitionState): Current local-search state.
         candidate (SplitCandidate): Candidate split to apply.
     """
-    apply_split(state, candidate.cluster_index, candidate.first_cluster, candidate.second_cluster)
+    apply_split_cluster(state, candidate.cluster_index, candidate.first_cluster, candidate.second_cluster)
 
 
 def min_cut_split_candidate(state: PartitionState, cluster_index: int) -> SplitCandidate | None:
@@ -148,7 +157,7 @@ def min_cut_split_candidate(state: PartitionState, cluster_index: int) -> SplitC
     first_cluster = set(parts[0])
     second_cluster = set(parts[1])
 
-    delta = split_delta(state, cluster_index, first_cluster, second_cluster)
+    delta = delta_split_cluster(state, cluster_index, first_cluster, second_cluster)
 
     return SplitCandidate(cluster_index, first_cluster, second_cluster, delta)
 
@@ -185,7 +194,7 @@ def bridge_split_candidate(state: PartitionState, cluster_index: int) -> SplitCa
         first_cluster = set(components[0])
         second_cluster = set(components[1])
 
-        delta = split_delta(state, cluster_index, first_cluster, second_cluster)
+        delta = delta_split_cluster(state, cluster_index, first_cluster, second_cluster)
 
         candidate = SplitCandidate(cluster_index, first_cluster, second_cluster, delta)
 
@@ -254,13 +263,13 @@ def refine_partition_split_min_cut(G: nx.Graph, partition: Partition, max_passes
     Refines a partition using repeated minimum-cut cluster splits.
 
     Args:
-        G (nx.Graph): Input Graph.
+        G (nx.Graph): Input graph.
         partition (Partition): Initial partition.
         max_passes (int): Maximum number of split iterations.
         epsilon (float): Numerical tolerance for improvement checks.
 
     Returns:
-        LocalSearchResult: Final partition and local search statistics.
+        LocalSearchResult: Final partition and local-search statistics.
     """
     state = build_partition_state(G, partition)
     initial_score = partition_density(G, partition)
@@ -287,13 +296,13 @@ def refine_partition_bridge_split(G: nx.Graph, partition: Partition, max_passes:
     Refines a partition using repeated bridge-based cluster splits.
 
     Args:
-        G (nx.Graph): Input Graph.
+        G (nx.Graph): Input graph.
         partition (Partition): Initial partition.
         max_passes (int): Maximum number of split iterations.
         epsilon (float): Numerical tolerance for improvement checks.
 
     Returns:
-        LocalSearchResult: Final partition and local search statistics.
+        LocalSearchResult: Final partition and local-search statistics.
     """
     state = build_partition_state(G, partition)
     initial_score = partition_density(G, partition)

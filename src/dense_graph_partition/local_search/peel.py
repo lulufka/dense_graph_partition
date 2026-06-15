@@ -4,9 +4,9 @@ import networkx as nx
 
 from dense_graph_partition.core.evaluation import partition_density
 from dense_graph_partition.core.types import Node, Partition
-from dense_graph_partition.local_search.result import LocalSearchResult
-from dense_graph_partition.local_search.search import build_local_search_result
-from dense_graph_partition.local_search.state import PartitionState, neighbors_in_cluster, build_partition_state
+from dense_graph_partition.local_search.move import apply_isolate_node, delta_isolate_node
+from dense_graph_partition.local_search.result import LocalSearchResult, build_local_search_result
+from dense_graph_partition.local_search.state import PartitionState, build_partition_state
 
 
 @dataclass(frozen=True)
@@ -16,7 +16,7 @@ class PeelCandidate:
 
     Attributes:
         node (Node): Node that should be removed from its current cluster.
-        delta (float): Expected change in density.
+        delta (float): Expected change in density. Positive values are improvements.
     """
     node: Node
     delta: float
@@ -28,24 +28,12 @@ def delta_peel_node(state: PartitionState, node: Node) -> float:
 
     Args:
         state (PartitionState): Current local-search state.
-        node (Node): Node to peel
+        node (Node): Node to peel.
 
     Returns:
         float: Change in density. Positive values are improvements.
     """
-    source_cluster = state.cluster_of[node]
-    source_size = state.cluster_sizes[source_cluster]
-
-    if source_size <= 1:
-        return float("-inf")
-
-    source_edges = state.internal_edges[source_cluster]
-    degree_inside_source = neighbors_in_cluster(state, node, source_cluster)
-
-    old_score = source_edges / source_size
-    new_score = (source_edges - degree_inside_source) / (source_size - 1)
-
-    return new_score - old_score
+    return delta_isolate_node(state, node)
 
 
 def apply_peel_node(state: PartitionState, node: Node) -> None:
@@ -54,27 +42,23 @@ def apply_peel_node(state: PartitionState, node: Node) -> None:
 
     Args:
         state (PartitionState): Current local-search state.
-        node (Node): Node to peel
+        node (Node): Node to peel.
 
     Raises:
         ValueError: If the node is already in a singleton cluster.
     """
-    source_cluster = state.cluster_of[node]
+    apply_isolate_node(state, node)
 
-    if state.cluster_sizes[source_cluster] <= 1:
-        raise ValueError("Cannot peel a node that already is a singleton.")
 
-    degree_inside_source = neighbors_in_cluster(state, node, source_cluster)
+def apply_peel_candidate(state: PartitionState, candidate: PeelCandidate) -> None:
+    """
+    Applies a peel candidate to the current state.
 
-    state.internal_edges[source_cluster] -= degree_inside_source
-    state.cluster_sizes[source_cluster] -= 1
-    state.clusters[source_cluster].remove(node)
-
-    new_cluster_index = len(state.clusters)
-    state.clusters.append({node})
-    state.cluster_sizes.append(1)
-    state.internal_edges.append(0)
-    state.cluster_of[node] = new_cluster_index
+    Args:
+        state (PartitionState): Current local-search state.
+        candidate (PeelCandidate): Peel candidate to apply.
+    """
+    apply_peel_node(state, candidate.node)
 
 
 def best_peel_node(state: PartitionState, epsilon: float = 1e-12) -> PeelCandidate | None:
@@ -115,7 +99,7 @@ def refine_partition_peel_node(G: nx.Graph, partition: Partition, max_passes: in
         epsilon (float): Numerical tolerance for improvement checks.
 
     Returns:
-        LocalSearchResult: Final partition and local-search statistic.
+        LocalSearchResult: Final partition and local-search statistics.
     """
     state = build_partition_state(G, partition)
     initial_score = partition_density(G, partition)
@@ -131,7 +115,7 @@ def refine_partition_peel_node(G: nx.Graph, partition: Partition, max_passes: in
         if candidate is None:
             break
 
-        apply_peel_node(state, candidate.node)
+        apply_peel_candidate(state, candidate)
         peel_count += 1
 
     return build_local_search_result(G, state, initial_score, peel_count, used_passes)
