@@ -21,9 +21,30 @@ class DatasetSpec:
     regime: str
 
 
+def build_single_dataset(data_dir: Path) -> DatasetSpec:
+    """
+    Builds one dataset specification from a concrete instance directory.
+
+    Args:
+        data_dir (Path): Directory containing graph instances with expected path layout: <root>/<size_class>/<graph_type>/<regime>.
+    """
+    regime = data_dir.name
+    graph_type = data_dir.parent.name
+    size_class = data_dir.parent.parent.name
+    name = f"{graph_type}_{regime}_{size_class}"
+
+    return DatasetSpec(
+        path=data_dir,
+        name=name,
+        size_class=size_class,
+        graph_type=graph_type,
+        regime=regime,
+    )
+
+
 def build_datasets(data_root: Path) -> list[DatasetSpec]:
     """
-    Enumerates all generated datasets used by the experiments.
+    Enumerates generated datasets used by the experiments. If data_root directly contains JSON files, it is treated as one dataset.
 
     Args:
         data_root (Path): Root directory containing generated graph instances.
@@ -31,6 +52,9 @@ def build_datasets(data_root: Path) -> list[DatasetSpec]:
     Returns:
         list[DatasetSpec]: Dataset specifications.
     """
+    if any(data_root.glob("*.json")):
+        return [build_single_dataset(data_root)]
+
     datasets: list[DatasetSpec] = []
 
     for size_class in ["small", "large"]:

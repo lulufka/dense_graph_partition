@@ -7,8 +7,7 @@ from typing import Any
 import networkx as nx
 import pandas as pd
 
-from dense_graph_partition.core.evaluation import partition_density, partition_cluster_sizes, partition_num_clusters, \
-    validate_partition, edge_density
+from dense_graph_partition.core.evaluation import partition_density, partition_cluster_sizes, partition_num_clusters, edge_density
 from dense_graph_partition.core.graph_io import load_instances_json
 from dense_graph_partition.experiments.algorithm_registry import build_partition_algorithm
 from dense_graph_partition.experiments.baseline_runner import rounded_for_export
@@ -67,66 +66,113 @@ def build_local_search_experiments() -> list[LocalSearchExperiment]:
     Returns:
         list[LocalSearchExperiment]: Pipeline configurations without concrete start partitions.
     """
-    single_pipelines = [
-        "move_first",
-        "move_best",
+    operator_pipelines = [
+        #"move_first",
+        #"move_best",
         "move_plateau",
-        "merge_first",
-        "merge_best",
-        "split_min_cut",
-        "bridge_split",
-        "peel_node",
     ]
 
-    short_pipelines = [
-        "merge_best,move_best",
-        "merge_first,move_best",
-        "move_best,merge_best",
+    repeated_move_pipelines = [
+        "move_plateau,move_plateau,move_plateau,move_plateau,move_plateau,move_plateau,move_plateau,move_plateau"
+    ]
+
+    extra_operator_pipelines = [
+        "move_plateau,merge_first",
         "move_plateau,merge_best",
-        "merge_best,move_plateau",
-        "peel_node,move_best",
-        "merge_best,peel_node,move_best",
-        "merge_best,bridge_split,move_best",
-        "merge_best,split_min_cut,move_best",
+        "move_plateau,bridge_split",
+        "move_plateau,split_min_cut",
+        "move_plateau,peel_node",
+        #"move_plateau,merge_first,bridge_split",
+        #"move_plateau,merge_first,split_min_cut",
+        #"move_plateau,bridge_split,merge_first",
+        #"move_plateau,split_min_cut,merge_first",
     ]
 
-    long_pipelines = [
-        "merge_best,move_best,peel_node,move_best",
-        "merge_best,move_plateau,peel_node,move_best",
-        "merge_first,move_plateau,merge_best,peel_node,move_best",
-        "merge_best,move_best,bridge_split,move_best,peel_node,move_best",
-        "merge_best,move_best,split_min_cut,move_best,peel_node,move_best",
-        "move_plateau,merge_best,bridge_split,move_plateau,peel_node,move_best",
-        "merge_best,move_best,peel_node,merge_best,bridge_split,move_best",
+    candidate_pipelines = [
+    #    "move_best,move_plateau",
+    #    "move_plateau,merge_best",
+    #    "move_plateau,bridge_split",
+    #    "move_plateau,bridge_split,move_best",
+    #    "move_plateau,split_min_cut,move_best",
+
+    #    "move_plateau,merge_best,bridge_split,move_plateau",
+    #    "move_plateau,merge_best,bridge_split,move_plateau,move_best",
+
+    #    "move_plateau,bridge_split,merge_best,move_plateau",
+    #    "move_plateau,bridge_split,move_plateau,move_best",
     ]
+
+    ablation_pipelines = [
+    #    "merge_best,move_plateau",
+    #    "merge_first,move_plateau",
+    #    "merge_best,move_plateau,bridge_split,move_best",
+    #    "merge_first,move_plateau,bridge_split,move_best",
+    #    "move_best,merge_best",
+    #    "move_best,merge_best,bridge_split,move_best",
+    #    "merge_best,bridge_split,move_best",
+
+    #    "merge_first,move_first",
+    #    "merge_best,move_first",
+    #    "merge_first,move_best",
+    #    "merge_best,move_best",
+    #    "merge_first,move_plateau",
+    #    "merge_best,move_plateau",
+
+    #    "move_plateau,move_plateau",
+    #    "move_plateau,move_plateau,move_plateau"
+
+    #    "move_plateau,merge_best,move_plateau",
+    #    "move_plateau,merge_first,move_plateau",
+    ]
+
 
     experiments: list[LocalSearchExperiment] = []
 
-    for index, pipeline in enumerate(single_pipelines):
+    for index, pipeline in enumerate(operator_pipelines):
         experiments.append(
             LocalSearchExperiment(
-                phase="single",
-                name=f"single_{index:02d}",
+                phase="operator",
+                name=f"op_{index:02d}",
                 start_partition="",
                 pipeline=pipeline
             )
         )
 
-    for index, pipeline in enumerate(short_pipelines):
+    for index, pipeline in enumerate(candidate_pipelines):
         experiments.append(
             LocalSearchExperiment(
-                phase="short",
-                name=f"short_{index:02d}",
+                phase="candidate",
+                name=f"cand_{index:02d}",
                 start_partition="",
                 pipeline=pipeline
             )
         )
 
-    for index, pipeline in enumerate(long_pipelines):
+    for index, pipeline in enumerate(ablation_pipelines):
         experiments.append(
             LocalSearchExperiment(
-                phase="long",
-                name=f"long_{index:02d}",
+                phase="ablation",
+                name=f"abl_{index:02d}",
+                start_partition="",
+                pipeline=pipeline
+            )
+        )
+
+    for index, pipeline in enumerate(repeated_move_pipelines):
+        experiments.append(
+            LocalSearchExperiment(
+                phase="repeated_move",
+                name=f"s_pl_{index:02d}",
+                start_partition="",
+                pipeline=pipeline
+            )
+        )
+
+    for index, pipeline in enumerate(extra_operator_pipelines):
+        experiments.append(
+            LocalSearchExperiment(
+                phase="extra_operator",
+                name=f"s_pl_{index:02d}",
                 start_partition="",
                 pipeline=pipeline
             )
@@ -149,7 +195,7 @@ def build_phase_experiments(phase: str, start_partitions: list[str]) -> list[Loc
     Raises:
         ValueError: If the selected phase is unknown.
     """
-    if phase not in {"single", "short", "long", "all"}:
+    if phase not in {"operator", "candidate", "ablation", "repeated_move", "extra_operator", "all"}:
         raise ValueError(f"Unknown phase: {phase}")
 
     base_experiments = build_local_search_experiments()

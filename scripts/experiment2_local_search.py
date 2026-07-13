@@ -26,7 +26,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--phase",
-        choices=["single", "short", "long", "all"],
+        choices=["operator", "candidate", "ablation", "repeated_move", "extra_operator", "all"],
         default="all",
         help="Pipeline phase to run.",
     )
@@ -54,6 +54,8 @@ def main() -> None:
     args = parse_args()
 
     experiments = build_phase_experiments(args.phase, START_PARTITION_NAMES)
+
+    #experiments = build_phase_experiments(args.phase, ["maximum_matching"])
 
     tasks = build_local_search_tasks(args.data_root, experiments, args.runs, args.base_seed)
 

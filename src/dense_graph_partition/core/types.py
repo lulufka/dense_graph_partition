@@ -1,3 +1,5 @@
-type Node = int
-type Cluster = set[Node]
-type Partition = list[Cluster]
+from typing import TypeAlias
+
+Node: TypeAlias = int
+Cluster: TypeAlias = set[Node]
+Partition: TypeAlias = list[Cluster]

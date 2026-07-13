@@ -35,12 +35,12 @@ def main() -> None:
 
     rows = []
 
-    for data_dir, dataset_name, size_class, graph_type, regime in build_datasets(args.data_root):
-        if not data_dir.exists():
-            raise FileNotFoundError(f"Dataset directory {data_dir} does not exist.")
+    for dataset in build_datasets(args.data_root):
+        if not dataset.path.exists():
+            raise FileNotFoundError(f"Dataset directory {dataset.path} does not exist.")
 
         rows.extend(
-            run_dataset(data_dir, algorithms, dataset_name, size_class, graph_type, regime)
+            run_dataset(dataset.path, algorithms, dataset.name, dataset.size_class, dataset.graph_type, dataset.regime)
         )
 
     raw_results = pd.DataFrame(rows)
@@ -48,6 +48,7 @@ def main() -> None:
 
     summary = summarize_results(raw_results)
     thesis_table = thesis_summary_table(summary)
+
     overall_table = overall_thesis_summary_table(raw_results)
 
     rounded_for_export(raw_results).to_csv(args.results_dir / "raw_results.csv", index=False)

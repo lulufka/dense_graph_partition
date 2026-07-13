@@ -18,19 +18,19 @@ class InstanceSpec:
 
 
 DEFAULT_SPECS = [
-    InstanceSpec("partition", "sparse", "small", 40, 50, 250),
-    InstanceSpec("partition", "dense", "small", 40, 50, 250),
-    InstanceSpec("powerlaw", "sparse", "small", 40, 50, 250),
-    InstanceSpec("powerlaw", "dense", "small", 40, 50, 250),
-    InstanceSpec("er", "sparse", "small", 40, 50, 250),
-    InstanceSpec("er", "dense", "small", 40, 50, 250),
+    #InstanceSpec("partition", "sparse", "small", 40, 50, 250),
+    #InstanceSpec("partition", "dense", "small", 40, 50, 250),
+    InstanceSpec("powerlaw", "sparse", "small", 250, 50, 250),
+    InstanceSpec("powerlaw", "dense", "small", 250, 50, 250),
+    InstanceSpec("er", "sparse", "small", 250, 50, 250),
+    InstanceSpec("er", "dense", "small", 250, 50, 250),
 
-    InstanceSpec("partition", "sparse", "large", 20, 500, 1500),
-    InstanceSpec("partition", "dense", "large", 20, 500, 1500),
-    InstanceSpec("powerlaw", "sparse", "large", 20, 500, 1500),
-    InstanceSpec("powerlaw", "dense", "large", 20, 500, 1500),
-    InstanceSpec("er", "sparse", "large", 20, 500, 1500),
-    InstanceSpec("er", "dense", "large", 20, 500, 1500),
+    #InstanceSpec("partition", "sparse", "large", 20, 500, 1500),
+    #InstanceSpec("partition", "dense", "large", 20, 500, 1500),
+    InstanceSpec("powerlaw", "sparse", "large", 250, 500, 1500),
+    InstanceSpec("powerlaw", "dense", "large", 250, 500, 1500),
+    InstanceSpec("er", "sparse", "large", 250, 500, 1500),
+    InstanceSpec("er", "dense", "large", 250, 500, 1500),
 ]
 
 
@@ -207,7 +207,7 @@ def generate_spec(output_dir: Path, spec: InstanceSpec, base_seed: int) -> None:
     target_dir = output_dir / spec.size_class / spec.graph_type / spec.regime
 
     for sorted_index, (n, _, seed, graph, communities) in enumerate(instances):
-        name = (f"{spec.graph_type}_{spec.regime}_{spec.size_class}_{sorted_index:03d}_n{n}_s{seed}")
+        name = f"{spec.graph_type}_{spec.regime}_{spec.size_class}_{sorted_index:03d}_n{n}_s{seed}"
         save_instance(target_dir / f"{name}.json", name, graph, communities)
 
 
