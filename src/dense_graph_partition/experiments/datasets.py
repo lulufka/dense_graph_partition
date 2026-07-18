@@ -58,7 +58,7 @@ def build_datasets(data_root: Path) -> list[DatasetSpec]:
     datasets: list[DatasetSpec] = []
 
     for size_class in ["small", "large"]:
-        for graph_type in ["partition", "powerlaw", "er"]:
+        for graph_type in ["powerlaw", "er"]:
             for regime in ["sparse", "dense"]:
                 path = data_root / size_class / graph_type / regime
                 name = f"{graph_type}_{regime}_{size_class}"

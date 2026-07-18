@@ -2,6 +2,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import networkx as nx
 import pandas as pd
@@ -23,6 +24,66 @@ class AlgorithmSpec:
     """
     name: str
     run: Callable[[nx.Graph], Partition]
+
+
+@dataclass(frozen=True)
+class BaselineTask:
+    """
+    Represents one baseline evaluation task.
+    One task evaluates all baseline algorithms on a single graph instance.
+
+    Attributes:
+        dataset_name (str): Name of the dataset.
+        size_class (str): Graph size category.
+        graph_type (str): Graph generator type.
+        regime (str): Density regime.
+        instance_name (str): Name of the graph instance.
+        graph (nx.Graph): Input graph.
+    """
+
+    dataset_name: str
+    size_class: str
+    graph_type: str
+    regime: str
+    instance_name: str
+    graph: nx.Graph
+
+
+def evaluate_baseline_task(task: BaselineTask) -> list[dict[str, object]]:
+    """
+    Evaluates all baseline algorithms on one graph instance.
+    The graph is processed once and all baseline algorithms are executed sequentially. One result row is produced for every algorithm.
+
+    Args:
+        task (BaselineTask): Evaluation task containing graph and dataset metadata.
+
+    Returns:
+        list[dict[str, object]]: Result rows for all evaluated algorithms.
+    """
+    from dense_graph_partition.experiments.algorithm_registry import build_baseline_algorithm_specs
+
+    graph = task.graph
+    algorithms = build_baseline_algorithm_specs()
+
+    rows: list[dict[str, object]] = []
+
+    graph_metadata = {
+        "dataset": task.dataset_name,
+        "size_class": task.size_class,
+        "graph_type": task.graph_type,
+        "regime": task.regime,
+        "instance": task.instance_name,
+        "n": graph.number_of_nodes(),
+        "m": graph.number_of_edges(),
+        "edge_density": edge_density(graph),
+    }
+
+    for algorithm in algorithms:
+        result = run_algorithm(graph, algorithm)
+
+        rows.append({**graph_metadata, **result})
+
+    return rows
 
 
 def run_algorithm(G: nx.Graph, algorithm: AlgorithmSpec) -> dict[str, object]:
@@ -54,50 +115,56 @@ def run_algorithm(G: nx.Graph, algorithm: AlgorithmSpec) -> dict[str, object]:
     }
 
 
-def run_dataset(
-        data_dir: Path,
-        algorithms: list[AlgorithmSpec],
-        dataset_name: str,
-        size_class: str,
-        graph_type: str,
-        regime: str
-) -> list[dict[str, object]]:
+def run_dataset(data_dir: Path, dataset_name: str, size_class: str, graph_type: str, regime: str, workers: int = 1) -> list[dict[str, object]]:
     """
-   Runs multiple algorithms on all graph instances contained in a dataset.
-   One result row is generated for every combination of graph instance and algorithm.
+    Runs all baseline algorithms on all graph instances of one dataset.
+    Each graph instance forms one parallel task. All algorithms are evaluated sequentially inside that task.
 
    Args:
        data_dir (Path): Directory containing graph instances.
-       algorithms (list[AlgorithmSpec]): Algorithms to evaluate.
        dataset_name (str): Dataset identifier used in result tables.
        size_class (str): Graph size category.
        graph_type (str): Graph generator type.
        regime (str): Density regime.
+       workers (int): Number of worker processes. A value of 1 disables parallelization.
 
-   Returns:
-       list[dict[str, object]]: A list of result rows that can be converted into a DataFrame.
-   """
-    rows = []
+    Returns:
+        list[dict[str, object]]: One result row for every graph-instance/algorithm combination.
+    """
+    instances = load_instances_json(data_dir)
 
-    for instance in load_instances_json(data_dir):
-        G = instance.graph
+    tasks = [
+        BaselineTask(dataset_name, size_class, graph_type, regime, instance.name, instance.graph)
+        for instance in instances
+    ]
 
-        for algorithm in algorithms:
-            result = run_algorithm(G, algorithm)
+    rows: list[dict[str, object]] = []
+    total_tasks = len(tasks)
 
-            rows.append(
-                {
-                    "dataset": dataset_name,
-                    "size_class": size_class,
-                    "graph_type": graph_type,
-                    "regime": regime,
-                    "instance": instance.name,
-                    "n": G.number_of_nodes(),
-                    "m": G.number_of_edges(),
-                    "edge_density": edge_density(G),
-                    **result,
-                }
-            )
+    if workers <= 1:
+        for index, task in enumerate(tasks, start=1):
+            task_rows = evaluate_baseline_task(task)
+            rows.extend(task_rows)
+
+            print(f"[{index}/{total_tasks}]  {dataset_name} | {task.instance_name}", flush=True)
+
+        return rows
+
+    with ProcessPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(evaluate_baseline_task, task): task for task in tasks}
+
+        for index, future in enumerate(as_completed(futures), start=1):
+            task = futures[future]
+
+            try:
+                task_rows = future.result()
+            except Exception as error:
+                raise RuntimeError("Baseline task failed: dataset={task.dataset_name}, instance={task.instance_name}") from error
+
+            rows.extend(task_rows)
+
+            print(f"[{index}/{total_tasks}] {dataset_name} | {task.instance_name}", flush=True)
+
     return rows
 
 
@@ -113,7 +180,7 @@ def add_relative_scores(raw_results: pd.DataFrame) -> pd.DataFrame:
     """
     results = raw_results.copy()
 
-    best_by_instance = results.groupby("instance")["density"].transform("max")
+    best_by_instance = results.groupby(["dataset", "instance"])["density"].transform("max")
     results["relative_to_best"] = results["density"] / best_by_instance
     results["is_best"] = results["density"] == best_by_instance
 
@@ -132,7 +199,7 @@ def add_instance_ranks(raw_results: pd.DataFrame) -> pd.DataFrame:
     """
     results = raw_results.copy()
 
-    results["rank"] = results.groupby("instance")["density"].rank(method="min", ascending=False)
+    results["rank"] = results.groupby(["dataset", "instance"])["density"].rank(method="min", ascending=False)
 
     return results
 
