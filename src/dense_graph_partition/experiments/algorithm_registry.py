@@ -21,6 +21,7 @@ StartAlgorithm = Callable[[nx.Graph], Partition]
 
 
 BASELINE_ALGORITHM_NAMES = [
+    "singleton",
     "matching",
     "maximum_matching",
     "high_degree_first_matching",

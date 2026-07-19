@@ -159,7 +159,7 @@ def run_dataset(data_dir: Path, dataset_name: str, size_class: str, graph_type: 
             try:
                 task_rows = future.result()
             except Exception as error:
-                raise RuntimeError("Baseline task failed: dataset={task.dataset_name}, instance={task.instance_name}") from error
+                raise RuntimeError(f"Baseline task failed: dataset={task.dataset_name}, instance={task.instance_name}") from error
 
             rows.extend(task_rows)
 
@@ -171,6 +171,8 @@ def run_dataset(data_dir: Path, dataset_name: str, size_class: str, graph_type: 
 def add_relative_scores(raw_results: pd.DataFrame) -> pd.DataFrame:
     """
     Adds relative performance scores to a result table.
+    The relative score is the quotient between the best density found for an instance and the density achieved by the respective algorithm.
+    A value of 1.0 indicates the best solution, while larger values indicate lower solution quality.
 
     Args:
         raw_results (pd.DataFrame): Per-instance experimental results.
@@ -181,7 +183,7 @@ def add_relative_scores(raw_results: pd.DataFrame) -> pd.DataFrame:
     results = raw_results.copy()
 
     best_by_instance = results.groupby(["dataset", "instance"])["density"].transform("max")
-    results["relative_to_best"] = results["density"] / best_by_instance
+    results["relative_to_best"] = best_by_instance / results["density"]
     results["is_best"] = results["density"] == best_by_instance
 
     return results
