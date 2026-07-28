@@ -13,7 +13,7 @@ from dense_graph_partition.local_search.peel import refine_partition_peel_node
 from dense_graph_partition.local_search.result import LocalSearchResult
 from dense_graph_partition.local_search.split import refine_partition_split_min_cut, refine_partition_bridge_split
 
-LocalSearchRefiner = Callable[[nx.Graph, Partition], LocalSearchResult]
+LocalSearchRefiner = Callable[..., LocalSearchResult]
 
 
 @dataclass(frozen=True)
@@ -99,6 +99,13 @@ LOCAL_SEARCH_REFINERS: dict[str, LocalSearchRefiner] = {
     "peel_node": refine_partition_peel_node,
 }
 
+RANDOMIZED_REFINERS = {
+    "move_first",
+    "move_best",
+    "move_plateau",
+    "merge_first",
+}
+
 
 def parse_pipeline(pipeline: str) -> list[str]:
     """
@@ -126,7 +133,7 @@ def parse_pipeline(pipeline: str) -> list[str]:
     return steps
 
 
-def run_local_search_pipeline(G: nx.Graph, partition: Partition, pipeline: str) -> PipelineResult:
+def run_local_search_pipeline(G: nx.Graph, partition: Partition, pipeline: str, zero_gain_factor: int = 4, random_seed: int | None = None) -> PipelineResult:
     """
     Runs a sequence of local-search refiners.
 
@@ -134,6 +141,8 @@ def run_local_search_pipeline(G: nx.Graph, partition: Partition, pipeline: str) 
         G (nx.Graph): Input graph.
         partition (Partition): Initial partition.
         pipeline (str): Comma-separated local-search step names.
+        zero_gain_factor (int): Multiplier used to determine the maximum number of consecutive zero-gain moves.
+        random_seed (int | None): Base seed used by randomized pipeline steps.
 
     Returns:
         PipelineResult: Final partition and aggregated local-search statistics.
@@ -152,8 +161,21 @@ def run_local_search_pipeline(G: nx.Graph, partition: Partition, pipeline: str) 
         score_before = partition_density(G, current_partition)
         clusters_before = partition_num_clusters(current_partition)
 
+        step_seed = (
+            None
+            if random_seed is None
+            else random_seed + step_index
+        )
+
         start_time = time.perf_counter()
-        result = refiner(G, current_partition)
+
+        if step_name == "move_plateau":
+            result = refiner(G, current_partition, zero_gain_factor=zero_gain_factor, random_seed=step_seed)
+        elif step_name in RANDOMIZED_REFINERS:
+            result = refiner(G, current_partition, random_seed=step_seed)
+        else:
+            result = refiner(G, current_partition)
+
         runtime = time.perf_counter() - start_time
 
         score_after = result.final_score
@@ -170,3 +192,24 @@ def run_local_search_pipeline(G: nx.Graph, partition: Partition, pipeline: str) 
     final_score = partition_density(G, current_partition)
 
     return PipelineResult(current_partition, initial_score, final_score, total_moves, total_passes, step_results)
+
+
+def offset_step_results(steps: list[PipelineStepResult], offset: int) -> list[PipelineStepResult]:
+    """
+    Returns pipeline steps with shifted step indices.
+    """
+    return [
+        PipelineStepResult(
+            step_index=step.step_index + offset,
+            step_name=step.step_name,
+            score_before=step.score_before,
+            score_after=step.score_after,
+            num_moves=step.num_moves,
+            num_passes=step.num_passes,
+            runtime=step.runtime,
+            num_clusters_before=step.num_clusters_before,
+            num_clusters_after=step.num_clusters_after,
+        )
+        for step in steps
+    ]
+

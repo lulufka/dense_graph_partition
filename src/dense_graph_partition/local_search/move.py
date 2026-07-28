@@ -319,6 +319,7 @@ def refine_partition_move_best(
 def refine_partition_move_plateau(
     G: nx.Graph,
     partition: Partition,
+    zero_gain_factor: int = 4,
     max_passes: int = 1000,
     random_seed: int | None = None,
     epsilon: float = 1e-12,
@@ -330,6 +331,7 @@ def refine_partition_move_plateau(
     Args:
         G (nx.Graph): Input graph.
         partition (Partition): Initial partition.
+        zero_gain_factor (int): Multiplier used to determine the maximum number of consecutive zero-gain moves.
         max_passes (int): Maximum number of passes over all nodes.
         random_seed (int | None): Random seed for node order shuffling.
         epsilon (float): Numerical tolerance for improvement checks.
@@ -337,6 +339,9 @@ def refine_partition_move_plateau(
     Returns:
         LocalSearchResult: Final partition and local-search statistics.
     """
+    if zero_gain_factor < 0:
+        raise ValueError("zero_gain_factor must be non-negative.")
+
     rng = random.Random(random_seed)
     state = build_partition_state(G, partition)
     initial_score = partition_density(G, partition)
@@ -344,7 +349,7 @@ def refine_partition_move_plateau(
     move_count = 0
     used_passes = 0
     zero_gain_count = 0
-    zero_gain_limit = 2 * G.number_of_nodes()
+    zero_gain_limit = zero_gain_factor * G.number_of_nodes()
 
     for _ in range(max_passes):
         used_passes += 1
@@ -373,6 +378,8 @@ def refine_partition_move_plateau(
 
             if is_zero_gain:
                 zero_gain_count += 1
+            #else:
+            #    zero_gain_count = 0
 
         if not changed:
             break
