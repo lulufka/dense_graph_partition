@@ -60,10 +60,10 @@ def evaluate_baseline_task(task: BaselineTask) -> list[dict[str, object]]:
     Returns:
         list[dict[str, object]]: Result rows for all evaluated algorithms.
     """
-    from dense_graph_partition.experiments.algorithm_registry import build_baseline_algorithm_specs
+    from dense_graph_partition.experiments.algorithm_registry import build_algorithm_specs, STARTPARTITIONS
 
     graph = task.graph
-    algorithms = build_baseline_algorithm_specs()
+    algorithms = build_algorithm_specs(STARTPARTITIONS)
 
     rows: list[dict[str, object]] = []
 

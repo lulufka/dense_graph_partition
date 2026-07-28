@@ -11,6 +11,7 @@ from dense_graph_partition.algorithms.matching import (
     high_degree_product_matching_partition,
     matching_partition,
     maximum_matching_partition,
+    maximum_matching_edge_cover_partition,
 )
 from dense_graph_partition.config import load_kapoce_config
 from dense_graph_partition.core.types import Partition
@@ -20,21 +21,11 @@ from dense_graph_partition.experiments.baseline_runner import AlgorithmSpec
 StartAlgorithm = Callable[[nx.Graph], Partition]
 
 
-BASELINE_ALGORITHM_NAMES = [
+STARTPARTITIONS = [
     "singleton",
     "matching",
     "maximum_matching",
-    "high_degree_first_matching",
-    "high_degree_product_matching",
-    "leiden_mdgp",
-    "kapoce",
-]
-
-
-START_PARTITION_NAMES = [
-    "singleton",
-    "matching",
-    "maximum_matching",
+    "maximum_matching_edge_cover",
     "high_degree_first_matching",
     "high_degree_product_matching",
     "leiden_mdgp",
@@ -64,6 +55,9 @@ def build_partition_algorithm(name: str) -> StartAlgorithm:
     if name == "maximum_matching":
         return maximum_matching_partition
 
+    if name == "maximum_matching_edge_cover":
+        return maximum_matching_edge_cover_partition
+
     if name == "high_degree_first_matching":
         return high_degree_first_matching_partition
 
@@ -92,12 +86,3 @@ def build_algorithm_specs(names: list[str]) -> list[AlgorithmSpec]:
     """
     return [AlgorithmSpec(name=name, run=build_partition_algorithm(name)) for name in names]
 
-
-def build_baseline_algorithm_specs() -> list[AlgorithmSpec]:
-    """
-    Builds the baseline algorithms for experiment 1.
-
-    Returns:
-        list[AlgorithmSpec]: Baseline algorithm specifications.
-    """
-    return build_algorithm_specs(BASELINE_ALGORITHM_NAMES)
