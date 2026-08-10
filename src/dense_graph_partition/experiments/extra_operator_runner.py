@@ -1,18 +1,17 @@
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import networkx as nx
 import pandas as pd
 
 from dense_graph_partition.core.types import Partition
-from dense_graph_partition.core.evaluation import partition_density, partition_cluster_sizes, partition_num_clusters, edge_density
+from dense_graph_partition.core.evaluation import partition_density
 from dense_graph_partition.core.graph_io import load_instances_json
 from dense_graph_partition.experiments.algorithm_registry import build_partition_algorithm
-from dense_graph_partition.experiments.baseline_runner import rounded_for_export
 from dense_graph_partition.experiments.datasets import build_datasets
+from dense_graph_partition.experiments.run_tasks import run_tasks
+from dense_graph_partition.experiments.runner import GraphTask, partition_stats, graph_metadata
 from dense_graph_partition.local_search.pipeline import PipelineStepResult, offset_step_results, run_local_search_pipeline
 
 
@@ -36,30 +35,19 @@ class BranchingLocalSearchExperiment:
 
 
 @dataclass(frozen=True)
-class LocalSearchTask:
+class BranchingLocalSearchTask(GraphTask):
     """
-    Stores one evaluation task.
+    Stores one branching local-search evaluation task.
 
     Attributes:
-        dataset (str): Dataset name.
-        size_class (str): Size class of the dataset.
-        graph_type (str): Type of generated graph.
-        regime (str): Density regime.
-        instance_name (str): Name of the graph instance.
-        graph (nx.Graph): Input graph.
-        run (int): One-based run number.
+        run (int): Run number.
         seed (int): Random seed used for randomized components.
-        experiment (LocalSearchExperiment): Local-search configuration.
+        experiment (BranchingLocalSearchExperiment): Local-search configuration.
     """
-    dataset: str
-    size_class: str
-    graph_type: str
-    regime: str
-    instance_name: str
-    graph: nx.Graph
     run: int
     seed: int
     experiment: BranchingLocalSearchExperiment
+
 
 
 def build_extra_operator_experiments(start_partitions: list[str]) -> list[BranchingLocalSearchExperiment]:
@@ -101,28 +89,8 @@ def copy_partition(partition: Partition) -> Partition:
     return [set(cluster) for cluster in partition]
 
 
-def partition_stats(partition: list[set[int]]) -> dict[str, float | int]:
-    """
-    Computes basic partition statistics.
-
-    Args:
-        partition (list[set[int]]): Partition to evaluate.
-
-    Returns:
-        dict[str, float | int]: Number of clusters, maximum cluster size,
-        and average cluster size.
-    """
-    sizes = partition_cluster_sizes(partition)
-
-    return {
-        "num_clusters": partition_num_clusters(partition),
-        "max_cluster_size": max(sizes),
-        "avg_cluster_size": sum(sizes) / len(sizes),
-    }
-
-
 def build_raw_result_row(
-        task: LocalSearchTask,
+        task: BranchingLocalSearchTask,
         pipeline: str,
         extra_operator: str,
         start_partition: Partition,
@@ -145,14 +113,7 @@ def build_raw_result_row(
         "start_partition": task.experiment.start_partition,
         "pipeline": pipeline,
         "extra_operator": extra_operator,
-        "dataset": task.dataset,
-        "size_class": task.size_class,
-        "graph_type": task.graph_type,
-        "regime": task.regime,
-        "instance": task.instance_name,
-        "n": graph.number_of_nodes(),
-        "m": graph.number_of_edges(),
-        "edge_density": edge_density(graph),
+        **graph_metadata(task),
         "run": task.run,
         "zero_gain_factor": task.experiment.zero_gain_factor,
         "seed": task.seed,
@@ -173,8 +134,10 @@ def build_raw_result_row(
     }
 
 
-def step_rows_from_pipeline_steps(task: LocalSearchTask, pipeline: str, extra_operator: str, steps: list[PipelineStepResult]) -> list[dict[str, Any]]:
+def step_rows_from_pipeline_steps(task: BranchingLocalSearchTask, pipeline: str, extra_operator: str, steps: list[PipelineStepResult]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+
+    metadata = graph_metadata(task)
 
     for step in steps:
         rows.append(
@@ -183,13 +146,7 @@ def step_rows_from_pipeline_steps(task: LocalSearchTask, pipeline: str, extra_op
                 "start_partition": task.experiment.start_partition,
                 "pipeline": pipeline,
                 "extra_operator": extra_operator,
-                "dataset": task.dataset,
-                "size_class": task.size_class,
-                "graph_type": task.graph_type,
-                "regime": task.regime,
-                "instance": task.instance_name,
-                "n": task.graph.number_of_nodes(),
-                "m": task.graph.number_of_edges(),
+                **metadata,
                 "run": task.run,
                 "zero_gain_factor": task.experiment.zero_gain_factor,
                 "seed": task.seed,
@@ -207,7 +164,7 @@ def step_rows_from_pipeline_steps(task: LocalSearchTask, pipeline: str, extra_op
 
     return rows
 
-def evaluate_branching_local_search_task(task: LocalSearchTask) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def evaluate_branching_local_search_task(task: BranchingLocalSearchTask) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     experiment = task.experiment
 
     graph = task.graph
@@ -223,7 +180,7 @@ def evaluate_branching_local_search_task(task: LocalSearchTask) -> tuple[list[di
         partition=copy_partition(start_partition),
         pipeline=experiment.shared_prefix,
         zero_gain_factor=experiment.zero_gain_factor,
-        random_seed=task.seed
+        random_seed=task.seed,
     )
     prefix_runtime = time.perf_counter() - prefix_start
 
@@ -243,11 +200,11 @@ def evaluate_branching_local_search_task(task: LocalSearchTask) -> tuple[list[di
                 partition=copy_partition(shared_partition),
                 pipeline=suffix,
                 zero_gain_factor=experiment.zero_gain_factor,
-                random_seed=suffix_seed
+                random_seed=suffix_seed,
             )
             suffix_runtime = time.perf_counter() - suffix_start
 
-            full_pipeline = (f"{experiment.shared_prefix},{suffix}")
+            full_pipeline = f"{experiment.shared_prefix},{suffix}"
             final_partition = suffix_result.partition
 
             num_moves = prefix_result.num_moves + suffix_result.num_moves
@@ -293,7 +250,7 @@ def evaluate_branching_local_search_task(task: LocalSearchTask) -> tuple[list[di
     return raw_rows, step_rows
 
 
-def build_branching_local_search_tasks(data_root: Path, experiments: list[BranchingLocalSearchExperiment], runs: int, base_seed: int) -> list[LocalSearchTask]:
+def build_branching_local_search_tasks(data_root: Path, experiments: list[BranchingLocalSearchExperiment], runs: int, base_seed: int) -> list[BranchingLocalSearchTask]:
     """
     Builds all branching local-search evaluation tasks.
 
@@ -304,93 +261,75 @@ def build_branching_local_search_tasks(data_root: Path, experiments: list[Branch
         base_seed (int): Base seed for reproducibility.
 
     Returns:
-        list[LocalSearchTask]: Evaluation tasks.
+        list[BranchingLocalSearchTask]: Evaluation tasks.
     """
-    tasks: list[LocalSearchTask] = []
+    tasks: list[BranchingLocalSearchTask] = []
+
+    global_instance_index = 0
 
     for dataset in build_datasets(data_root):
         if not dataset.path.exists():
-            raise FileNotFoundError(f"Dataset directory {dataset} does not exist.")
+            raise FileNotFoundError(f"Dataset directory {dataset.path} does not exist.")
 
         instances = load_instances_json(dataset.path)
 
-        for run_index in range(runs):
-            for instance_index, instance in enumerate(instances):
+        for instance in instances:
+            for run_index in range(runs):
                 seed = (
                         base_seed
                         + 1_000_000 * run_index
-                        + 1_000 * instance_index
+                        + 1_000 * global_instance_index
                 )
 
                 for experiment in experiments:
                     tasks.append(
-                        LocalSearchTask(
-                            dataset.name,
-                            dataset.size_class,
-                            dataset.graph_type,
-                            dataset.regime,
-                            instance.name,
-                            instance.graph,
-                            run_index,
-                            seed,
-                            experiment,
+                        BranchingLocalSearchTask(
+                            dataset=dataset.name,
+                            size_class=dataset.size_class,
+                            graph_type=dataset.graph_type,
+                            regime=dataset.regime,
+                            instance_name=instance.name,
+                            graph=instance.graph,
+                            run=run_index,
+                            seed=seed,
+                            experiment=experiment,
                         )
                     )
+
+            global_instance_index += 1
 
     return tasks
 
 
-def run_branching_local_search_tasks(tasks: list[LocalSearchTask], workers: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def run_branching_local_search_tasks(tasks: list[BranchingLocalSearchTask], workers: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """
     Runs local-search tasks sequentially or in parallel.
 
     Args:
-        tasks (list[LocalSearchTask]): Tasks to evaluate.
+        tasks (list[BranchingLocalSearchTask]): Tasks to evaluate.
         workers (int): Number of worker processes.
 
     Returns:
         tuple[list[dict[str, Any]], list[dict[str, Any]]]: Raw pipeline rows and step-level rows.
     """
+    task_results = run_tasks(
+        tasks=tasks,
+        evaluate=evaluate_branching_local_search_task,
+        workers=workers,
+        describe=lambda task: (f"{task.experiment.name} | {task.instance_name}"),
+    )
+
     raw_rows: list[dict[str, Any]] = []
     step_rows: list[dict[str, Any]] = []
 
-    if workers <= 1:
-        for index, task in enumerate(tasks):
-            task_raw_rows, task_step_rows = (evaluate_branching_local_search_task(task))
-
-            raw_rows.extend(task_raw_rows)
-            step_rows.extend(task_step_rows)
-
-            print(
-                f"[{index}/{len(tasks)}] "
-                f"{task.experiment.name} | {task.instance_name}"
-            )
-
-        return raw_rows, step_rows
-
-    with ProcessPoolExecutor(max_workers=workers) as executor:
-        futures = {
-            executor.submit(evaluate_branching_local_search_task, task): task
-            for task in tasks
-        }
-
-        for index, future in enumerate(as_completed(futures)):
-            task = futures[future]
-
-            task_raw_rows, task_step_rows = future.result()
-
-            raw_rows.extend(task_raw_rows)
-            step_rows.extend(task_step_rows)
-
-            print(
-                f"[{index}/{len(tasks)}] "
-                f"{task.experiment.name} | {task.instance_name}"
-            )
+    for task_raw_rows, task_step_rows in task_results:
+        raw_rows.extend(task_raw_rows)
+        step_rows.extend(task_step_rows)
 
     return raw_rows, step_rows
 
 
-def write_local_search_results(raw_results: pd.DataFrame, step_results: pd.DataFrame, results_dir: Path) -> None:
+def write_branching_local_search_results(raw_results: pd.DataFrame, step_results: pd.DataFrame, results_dir: Path) -> None:
     """
     Writes local-search results to CSV files.
 
@@ -401,5 +340,5 @@ def write_local_search_results(raw_results: pd.DataFrame, step_results: pd.DataF
     """
     results_dir.mkdir(parents=True, exist_ok=True)
 
-    rounded_for_export(raw_results).to_csv(results_dir / "raw_results.csv", index=False)
-    rounded_for_export(step_results).to_csv(results_dir / "step_results.csv", index=False)
+    raw_results.to_csv(results_dir / "raw_results.csv", index=False)
+    step_results.to_csv(results_dir / "step_results.csv", index=False)

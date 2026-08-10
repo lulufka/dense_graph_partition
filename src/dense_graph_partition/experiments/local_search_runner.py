@@ -1,19 +1,18 @@
 import time
 from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import networkx as nx
 import pandas as pd
 
 from dense_graph_partition.core.types import Partition
-from dense_graph_partition.core.evaluation import partition_density, partition_cluster_sizes, partition_num_clusters, edge_density
+from dense_graph_partition.core.evaluation import partition_density
 from dense_graph_partition.core.graph_io import load_instances_json
 from dense_graph_partition.experiments.algorithm_registry import build_partition_algorithm
-from dense_graph_partition.experiments.baseline_runner import rounded_for_export
 from dense_graph_partition.experiments.datasets import build_datasets
+from dense_graph_partition.experiments.run_tasks import run_tasks
+from dense_graph_partition.experiments.runner import GraphTask, partition_stats, graph_metadata
 from dense_graph_partition.local_search.pipeline import PipelineStepResult, run_local_search_pipeline
 
 
@@ -35,29 +34,17 @@ class LocalSearchExperiment:
 
 
 @dataclass(frozen=True)
-class LocalSearchTask:
+class LocalSearchTask(GraphTask):
     """
     Stores all local-search evaluations for one graph instance and one start-partition algorithm.
 
     Attributes:
-        dataset: Dataset name.
-        size_class: Size class of the dataset.
-        graph_type: Type of generated graph.
-        regime: Density regime.
-        instance_name: Name of the graph instance.
-        graph: Input graph.
-        start_partition_name: Start-partition algorithm evaluated in this task.
-        experiments: Local-search configurations using this start partition.
-        runs: Number of randomized runs per experiment.
-        base_seed: Base seed for reproducibility.
-        instance_index: Globally unique instance index used for seed generation.
+        start_partition_name (str): Start-partition algorithm evaluated in this task.
+        experiments (tuple[LocalSearchExperiment, ...]): Local-search configurations.
+        runs (int): Number of randomized runs.
+        base_seed (int): Base seed for reproducibility.
+        instance_index (int): Globally unique instance index used for seed generation.
     """
-    dataset: str
-    size_class: str
-    graph_type: str
-    regime: str
-    instance_name: str
-    graph: nx.Graph
     start_partition_name: str
     experiments: tuple[LocalSearchExperiment, ...]
     runs: int
@@ -131,25 +118,6 @@ def copy_partition(partition: Partition) -> Partition:
     return [set(cluster) for cluster in partition]
 
 
-def partition_stats(partition: list[set[int]]) -> dict[str, float | int]:
-    """
-    Computes basic partition statistics.
-
-    Args:
-        partition (list[set[int]]): Partition to evaluate.
-
-    Returns:
-        dict[str, float | int]: Number of clusters, maximum cluster size, and average cluster size.
-    """
-    sizes = partition_cluster_sizes(partition)
-
-    return {
-        "num_clusters": partition_num_clusters(partition),
-        "max_cluster_size": max(sizes),
-        "avg_cluster_size": sum(sizes) / len(sizes),
-    }
-
-
 def build_raw_result_row(
         task: LocalSearchTask,
         experiment: LocalSearchExperiment,
@@ -175,14 +143,7 @@ def build_raw_result_row(
         "experiment": experiment.name,
         "start_partition": experiment.start_partition,
         "pipeline": pipeline,
-        "dataset": task.dataset,
-        "size_class": task.size_class,
-        "graph_type": task.graph_type,
-        "regime": task.regime,
-        "instance": task.instance_name,
-        "n": graph.number_of_nodes(),
-        "m": graph.number_of_edges(),
-        "edge_density": edge_density(graph),
+        **graph_metadata(task),
         "run": run,
         "zero_gain_factor": experiment.zero_gain_factor,
         "seed": seed,
@@ -213,19 +174,15 @@ def step_rows_from_pipeline_steps(
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
 
+    metadata = graph_metadata(task)
+
     for step in steps:
         rows.append(
             {
                 "experiment": experiment.name,
                 "start_partition": experiment.start_partition,
                 "pipeline": pipeline,
-                "dataset": task.dataset,
-                "size_class": task.size_class,
-                "graph_type": task.graph_type,
-                "regime": task.regime,
-                "instance": task.instance_name,
-                "n": task.graph.number_of_nodes(),
-                "m": task.graph.number_of_edges(),
+                **metadata,
                 "run": run,
                 "zero_gain_factor": experiment.zero_gain_factor,
                 "seed": seed,
@@ -380,41 +337,19 @@ def run_local_search_tasks(tasks: list[LocalSearchTask], workers: int) -> tuple[
     Returns:
         tuple[list[dict[str, Any]], list[dict[str, Any]]]: Raw pipeline rows and step-level rows.
     """
+    task_results = run_tasks(
+        tasks=tasks,
+        evaluate=evaluate_local_search_task,
+        workers=workers,
+        describe=lambda task: (f"{task.start_partition_name} | {task.instance_name}"),
+    )
+
     raw_rows: list[dict[str, Any]] = []
     step_rows: list[dict[str, Any]] = []
 
-    if workers <= 1:
-        for index, task in enumerate(tasks):
-            task_raw_rows, task_step_rows = (evaluate_local_search_task(task))
-
-            raw_rows.extend(task_raw_rows)
-            step_rows.extend(task_step_rows)
-
-            print(
-                f"[{index + 1}/{len(tasks)}] "
-                f"{task.start_partition_name} | {task.instance_name}"
-            )
-
-        return raw_rows, step_rows
-
-    with ProcessPoolExecutor(max_workers=workers) as executor:
-        futures = {
-            executor.submit(evaluate_local_search_task, task): task
-            for task in tasks
-        }
-
-        for index, future in enumerate(as_completed(futures)):
-            task = futures[future]
-
-            task_raw_rows, task_step_rows = future.result()
-
-            raw_rows.extend(task_raw_rows)
-            step_rows.extend(task_step_rows)
-
-            print(
-                f"[{index + 1}/{len(tasks)}] "
-                f"{task.start_partition_name} | {task.instance_name}"
-            )
+    for task_raw_rows, task_step_rows in task_results:
+        raw_rows.extend(task_raw_rows)
+        step_rows.extend(task_step_rows)
 
     return raw_rows, step_rows
 
@@ -430,5 +365,5 @@ def write_local_search_results(raw_results: pd.DataFrame, step_results: pd.DataF
     """
     results_dir.mkdir(parents=True, exist_ok=True)
 
-    rounded_for_export(raw_results).to_csv(results_dir / "raw_results.csv", index=False)
-    rounded_for_export(step_results).to_csv(results_dir / "step_results.csv", index=False)
+    raw_results.to_csv(results_dir / "raw_results.csv", index=False)
+    step_results.to_csv(results_dir / "step_results.csv", index=False)

@@ -75,3 +75,36 @@ def leiden_mdgp_partition(G: nx.Graph, random_seed: int | None = 42, max_rounds:
             break
 
     return membership_to_partition(partition.membership, node_order)
+
+
+def leiden_partition(G: nx.Graph, random_seed: int | None = 42, max_rounds: int = 200) -> Partition:
+    """
+    Computes a partition using the Leiden algorithm with the modularity objective.
+
+    Args:
+        G (nx.Graph): The networkx graph to partition.
+        random_seed (int | None): Seed for the random number generator.
+        max_rounds (int): Maximum number of Leiden optimization rounds.
+
+    Returns:
+        Partition: A partition of the graph optimized for modularity.
+    """
+    if G.number_of_nodes() == 0:
+        return []
+
+    ig_graph, node_order = nx_to_igraph(G)
+
+    optimiser = leidenalg.Optimiser()
+
+    if random_seed is not None:
+        optimiser.set_rng_seed(random_seed)
+
+    partition = leidenalg.ModularityVertexPartition(ig_graph)
+
+    for _ in range(max_rounds):
+        diff = optimiser.optimise_partition(partition, n_iterations=1)
+
+        if diff == 0:
+            break
+
+    return membership_to_partition(partition.membership, node_order)

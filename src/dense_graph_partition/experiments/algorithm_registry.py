@@ -4,7 +4,7 @@ from functools import partial
 import networkx as nx
 
 from dense_graph_partition.adapters.kapoce import kapoce_partition
-from dense_graph_partition.adapters.leiden import leiden_mdgp_partition
+from dense_graph_partition.adapters.leiden import leiden_mdgp_partition, leiden_partition
 from dense_graph_partition.algorithms.basic import singleton_partition
 from dense_graph_partition.algorithms.matching import (
     high_degree_first_matching_partition,
@@ -13,12 +13,12 @@ from dense_graph_partition.algorithms.matching import (
     maximum_matching_partition,
     maximum_matching_edge_cover_partition,
 )
+from dense_graph_partition.algorithms.mdgp_plateau import mdgp_plateau_partition
 from dense_graph_partition.config import load_kapoce_config
 from dense_graph_partition.core.types import Partition
-from dense_graph_partition.experiments.baseline_runner import AlgorithmSpec
+from dense_graph_partition.experiments.runner import AlgorithmSpec
 
-
-StartAlgorithm = Callable[[nx.Graph], Partition]
+PartitionAlgorithm = Callable[[nx.Graph], Partition]
 
 
 STARTPARTITIONS = [
@@ -32,8 +32,15 @@ STARTPARTITIONS = [
     "kapoce",
 ]
 
+COMPARISON_ALGORITHMS = [
+    "kapoce",
+    "leiden",
+    "leiden_mdgp",
+    "mdgp_plateau",
+]
 
-def build_partition_algorithm(name: str) -> StartAlgorithm:
+
+def build_partition_algorithm(name: str) -> PartitionAlgorithm:
     """
     Builds a partitioning algorithm by name.
 
@@ -64,8 +71,14 @@ def build_partition_algorithm(name: str) -> StartAlgorithm:
     if name == "high_degree_product_matching":
         return high_degree_product_matching_partition
 
+    if name == "leiden":
+        return leiden_partition
+
     if name == "leiden_mdgp":
         return leiden_mdgp_partition
+
+    if name == "mdgp_plateau":
+        return mdgp_plateau_partition
 
     if name == "kapoce":
         kapoce_config = load_kapoce_config()
