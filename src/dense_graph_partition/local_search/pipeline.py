@@ -9,7 +9,6 @@ from dense_graph_partition.core.types import Partition
 from dense_graph_partition.local_search.merge import refine_partition_merge_first, refine_partition_merge_best
 from dense_graph_partition.local_search.move import refine_partition_move_first, refine_partition_move_best, \
     refine_partition_move_plateau
-from dense_graph_partition.local_search.peel import refine_partition_peel_node
 from dense_graph_partition.local_search.result import LocalSearchResult
 from dense_graph_partition.local_search.split import refine_partition_split_min_cut, refine_partition_bridge_split
 
@@ -96,7 +95,6 @@ LOCAL_SEARCH_REFINERS: dict[str, LocalSearchRefiner] = {
     "merge_best": refine_partition_merge_best,
     "split_min_cut": refine_partition_split_min_cut,
     "bridge_split": refine_partition_bridge_split,
-    "peel_node": refine_partition_peel_node,
 }
 
 RANDOMIZED_REFINERS = {

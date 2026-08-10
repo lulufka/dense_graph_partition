@@ -73,7 +73,6 @@ def build_extra_operator_experiments(start_partitions: list[str]) -> list[Branch
         "merge_best",
         "bridge_split",
         "split_min_cut",
-        "peel_node",
     )
 
     for start_partition in start_partitions:
