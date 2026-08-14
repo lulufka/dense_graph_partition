@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 
 from dense_graph_partition.experiments.algorithm_registry import build_algorithm_specs, STARTPARTITIONS
-from dense_graph_partition.experiments.runner import build_algorithm_tasks, run_algorithm_tasks, write_algorithm_results
+from dense_graph_partition.experiments.runner import build_algorithm_tasks, run_algorithm_tasks, write_raw_results
 
 
 def parse_args() -> argparse.Namespace:
@@ -43,7 +43,7 @@ def main() -> None:
 
     raw_rows = run_algorithm_tasks(tasks=tasks, workers=args.workers)
 
-    write_algorithm_results(raw_results=pd.DataFrame(raw_rows), results_dir=args.results_dir)
+    write_raw_results(raw_results=pd.DataFrame(raw_rows), results_dir=args.results_dir)
 
 
 

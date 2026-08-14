@@ -8,7 +8,7 @@ import pandas as pd
 
 from dense_graph_partition.core.evaluation import edge_density, partition_cluster_sizes, partition_density, \
     partition_num_clusters, validate_partition
-from dense_graph_partition.core.graph_io import load_instances_json
+from dense_graph_partition.core.graph_io import load_instances_json, partition_to_json
 from dense_graph_partition.core.types import Partition
 from dense_graph_partition.experiments.datasets import build_datasets
 from dense_graph_partition.experiments.run_tasks import run_tasks
@@ -102,7 +102,7 @@ def partition_stats(partition: Partition) -> dict[str, float | int]:
     }
 
 
-def run_algorithm(G: nx.Graph, algorithm: AlgorithmSpec) -> dict[str, object]:
+def run_algorithm(G: nx.Graph, algorithm: AlgorithmSpec, include_partition: bool = False) -> dict[str, object]:
     """
     Executes one partitioning algorithm on a graph and computes evaluation statistics.
 
@@ -119,12 +119,17 @@ def run_algorithm(G: nx.Graph, algorithm: AlgorithmSpec) -> dict[str, object]:
 
     validate_partition(G, partition)
 
-    return {
+    result = {
         "algorithm": algorithm.name,
         "density": partition_density(G, partition),
         **partition_stats(partition),
         "runtime": runtime,
     }
+
+    if include_partition:
+        result["partition"] = partition_to_json(partition)
+
+    return result
 
 
 def evaluate_algorithm_task(task: AlgorithmTask) -> list[dict[str, object]]:
@@ -206,7 +211,7 @@ def run_algorithm_tasks(tasks: list[AlgorithmTask], workers: int) -> list[dict[s
     return [row for task_rows in task_results for row in task_rows]
 
 
-def write_algorithm_results(raw_results: pd.DataFrame, results_dir: Path) -> None:
+def write_raw_results(raw_results: pd.DataFrame, results_dir: Path) -> None:
     """
     Writes raw algorithm evaluation results to a CSV file.
 

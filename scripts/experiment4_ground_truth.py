@@ -4,23 +4,25 @@ from pathlib import Path
 import pandas as pd
 
 from dense_graph_partition.experiments.algorithm_registry import COMPARISON_ALGORITHMS, build_algorithm_specs
-from dense_graph_partition.experiments.runner import build_algorithm_tasks, run_algorithm_tasks, write_raw_results
+from dense_graph_partition.experiments.runner import write_raw_results
+
+from dense_graph_partition.experiments.ground_truth_runner import build_ground_truth_tasks, run_ground_truth_tasks
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run the final algorithm comparison for Dense Graph Partition."
+        description="Evaluate partitioning algorithms on random partition graphs with ground truth."
     )
     parser.add_argument(
         "--data-root",
         type=Path,
-        default=Path("data/generated"),
-        help="Root directory containing graph instances.",
+        default=Path("data/ground_truth"),
+        help="Root directory containing random partition graph instances.",
     )
     parser.add_argument(
         "--results-dir",
         type=Path,
-        default=Path("results/experiment3"),
+        default=Path("results/experiment4"),
         help="Directory where result CSV files are written.",
     )
     parser.add_argument(
@@ -38,11 +40,11 @@ def main() -> None:
 
     algorithms = build_algorithm_specs(COMPARISON_ALGORITHMS)
 
-    tasks = build_algorithm_tasks(data_root=args.data_root, algorithms=algorithms)
+    tasks = build_ground_truth_tasks(data_root=args.data_root, algorithms=algorithms)
 
-    print(f"Prepared {len(tasks)} comparison tasks.")
+    print(f"Prepared {len(tasks)} ground-truth tasks.")
 
-    raw_rows = run_algorithm_tasks(tasks=tasks, workers=args.workers)
+    raw_rows = run_ground_truth_tasks(tasks=tasks, workers=args.workers)
 
     write_raw_results(raw_results=pd.DataFrame(raw_rows), results_dir=args.results_dir)
 

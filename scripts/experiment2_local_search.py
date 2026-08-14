@@ -48,7 +48,6 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-
     experiments = build_local_search_experiments(["maximum_matching_edge_cover"]) # build_local_search_experiments(STARTPARTITIONS)
     tasks = build_local_search_tasks(args.data_root, experiments, args.runs, args.base_seed)
     print(f"Prepared {len(tasks)} local-search tasks.")

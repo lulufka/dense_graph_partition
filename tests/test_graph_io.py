@@ -37,7 +37,6 @@ def test_load_graph_json_reads_instance(tmp_path: Path) -> None:
         "n": 3,
         "m": 3,
         "edges": [[0, 1], [1, 2], [0, 2]],
-        "communities": [[0, 1, 2]],
     }
 
     path.write_text(json.dumps(data), encoding="utf-8")
@@ -48,4 +47,3 @@ def test_load_graph_json_reads_instance(tmp_path: Path) -> None:
     assert instance.graph.number_of_nodes() == 3
     assert instance.graph.number_of_edges() == 3
     assert instance.graph.has_edge(0, 1)
-    assert instance.communities == [[0, 1, 2]]

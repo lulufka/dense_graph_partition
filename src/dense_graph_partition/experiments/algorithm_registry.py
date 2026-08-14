@@ -5,7 +5,7 @@ import networkx as nx
 
 from dense_graph_partition.adapters.kapoce import kapoce_partition
 from dense_graph_partition.adapters.leiden import leiden_mdgp_partition, leiden_partition
-from dense_graph_partition.algorithms.basic import singleton_partition
+from dense_graph_partition.algorithms.singleton import singleton_partition
 from dense_graph_partition.algorithms.matching import (
     high_degree_first_matching_partition,
     high_degree_product_matching_partition,
