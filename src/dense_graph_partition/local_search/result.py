@@ -14,16 +14,20 @@ class LocalSearchResult:
 
     Attributes:
         partition (Partition): Final partition resulting from the local-search run.
-        num_moves (int): Number of accepted local-search operations.
-        num_passes (int): Number of completed passes or iterations.
         initial_score (float): Partition density before local search.
         final_score (float): Partition density after local search.
+        num_moves (int): Number of accepted local-search operations.
+        num_passes (int): Number of completed passes or iterations.
+        num_improving_moves (int): Number of moves which improve the partition density.
+        num_zero_gain_moves (int): Number of plateau moves.
     """
     partition: Partition
-    num_moves: int
-    num_passes: int
     initial_score: float
     final_score: float
+    num_moves: int
+    num_passes: int
+    num_improving_moves: int = 0
+    num_zero_gain_moves: int = 0
 
     @property
     def num_operations(self) -> int:
@@ -57,20 +61,24 @@ class LocalSearchResult:
         return self.final_score > self.initial_score
 
 
-def build_local_search_result(G: nx.Graph, state: PartitionState, initial_score: float, num_moves: int, num_passes: int) -> LocalSearchResult:
-    """
-    Builds a LocalSearchResult from a partition state.
-
-    Args:
-        G (nx.Graph): Input graph.
-        state (PartitionState): Final local-search state.
-        initial_score (float): Density score before local search.
-        num_moves (int): Number of accepted operations.
-        num_passes (int): Number of completed search passes.
-
-    Returns:
-        LocalSearchResult: Result object containing the final partition, density scores, and search statistics.
-    """
+def build_local_search_result(
+        G: nx.Graph,
+        state: PartitionState,
+        initial_score: float,
+        num_moves: int,
+        num_passes: int,
+        num_improving_moves: int = 0,
+        num_zero_gain_moves: int = 0,
+) -> LocalSearchResult:
     final_partition = state_to_partition(state)
     final_score = partition_density(G, final_partition)
-    return LocalSearchResult(final_partition, num_moves, num_passes, initial_score, final_score)
+
+    return LocalSearchResult(
+        partition=final_partition,
+        initial_score=initial_score,
+        final_score=final_score,
+        num_moves=num_moves,
+        num_passes=num_passes,
+        num_improving_moves=num_improving_moves,
+        num_zero_gain_moves=num_zero_gain_moves,
+    )

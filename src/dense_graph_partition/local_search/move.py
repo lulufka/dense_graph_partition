@@ -261,7 +261,14 @@ def refine_partition_move_first(
         if not improved:
             break
 
-    return build_local_search_result(G, state, initial_score, move_count, used_passes)
+    return build_local_search_result(
+        G,
+        state,
+        initial_score,
+        move_count,
+        used_passes,
+        num_improving_moves=move_count,
+    )
 
 
 def refine_partition_move_best(
@@ -313,7 +320,14 @@ def refine_partition_move_best(
         apply_move_candidate(state, best)
         move_count += 1
 
-    return build_local_search_result(G, state, initial_score, move_count, used_passes)
+    return build_local_search_result(
+        G,
+        state,
+        initial_score,
+        move_count,
+        used_passes,
+        num_improving_moves=move_count,
+    )
 
 
 def refine_partition_move_plateau(
@@ -331,7 +345,7 @@ def refine_partition_move_plateau(
     Args:
         G (nx.Graph): Input graph.
         partition (Partition): Initial partition.
-        zero_gain_factor (int): Multiplier used to determine the maximum number of consecutive zero-gain moves.
+        zero_gain_factor (int): Multiplier used to determine the maximum total number of zero-gain moves accepted during one application.
         max_passes (int): Maximum number of passes over all nodes.
         random_seed (int | None): Random seed for node order shuffling.
         epsilon (float): Numerical tolerance for improvement checks.
@@ -347,6 +361,7 @@ def refine_partition_move_plateau(
     initial_score = partition_density(G, partition)
 
     move_count = 0
+    improving_move_count = 0
     used_passes = 0
     zero_gain_count = 0
     zero_gain_limit = zero_gain_factor * G.number_of_nodes()
@@ -378,10 +393,18 @@ def refine_partition_move_plateau(
 
             if is_zero_gain:
                 zero_gain_count += 1
-            #else:
-            #    zero_gain_count = 0
+            else:
+                improving_move_count += 1
 
         if not changed:
             break
 
-    return build_local_search_result(G, state, initial_score, move_count, used_passes)
+    return build_local_search_result(
+        G,
+        state,
+        initial_score,
+        move_count,
+        used_passes,
+        num_improving_moves=improving_move_count,
+        num_zero_gain_moves=zero_gain_count,
+    )
