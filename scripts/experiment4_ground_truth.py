@@ -11,13 +11,13 @@ from dense_graph_partition.experiments.ground_truth_runner import build_ground_t
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Evaluate partitioning algorithms on random partition graphs with ground truth."
+        description="Evaluate partitioning algorithms on synthetic graphs with known ground truth communities."
     )
     parser.add_argument(
         "--data-root",
         type=Path,
         default=Path("data/ground_truth"),
-        help="Root directory containing random partition graph instances.",
+        help="Root directory containing ground-truth graph instances.",
     )
     parser.add_argument(
         "--results-dir",

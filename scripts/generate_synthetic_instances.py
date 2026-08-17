@@ -5,7 +5,7 @@ import networkx as nx
 
 from dense_graph_partition.core.graph_io import save_graph_json
 from dense_graph_partition.experiments.data_generation import InstanceSpec, target_average_degree, GraphGenerator, \
-    GenerationTask, generate_connected_instance, sample_sizes, sample_sizes_by_class
+    GenerationTask, generate_connected_instance, sample_sizes_by_class
 from dense_graph_partition.experiments.run_tasks import run_tasks
 
 DEFAULT_SPECS = [

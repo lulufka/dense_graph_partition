@@ -76,23 +76,23 @@ def build_local_search_experiments(start_partitions: list[str]) -> list[LocalSea
     plateau_pipeline = ",".join(["move_plateau"] * 10)
 
     for start_partition in start_partitions:
-        experiments.append(
-            LocalSearchExperiment(
-                name=f"{start_partition}_move_first",
-                start_partition=start_partition,
-                pipeline="move_first",
-            )
-        )
+        # experiments.append(
+        #     LocalSearchExperiment(
+        #         name=f"{start_partition}_move_first",
+        #         start_partition=start_partition,
+        #         pipeline="move_first",
+        #     )
+        # )
+#
+        # experiments.append(
+        #     LocalSearchExperiment(
+        #         name=f"{start_partition}_move_best",
+        #         start_partition=start_partition,
+        #         pipeline="move_best",
+        #     )
+        # )
 
-        experiments.append(
-            LocalSearchExperiment(
-                name=f"{start_partition}_move_best",
-                start_partition=start_partition,
-                pipeline="move_best",
-            )
-        )
-
-        for factor in (1, 2, 4, 8):
+        for factor in (2,):
             experiments.append(
                 LocalSearchExperiment(
                     name=(f"{start_partition}_move_plateau10_zg{factor}"),

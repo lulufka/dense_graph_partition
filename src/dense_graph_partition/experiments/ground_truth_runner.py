@@ -1,16 +1,49 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from dense_graph_partition.core.graph_io import load_ground_truth_graph_json
+from dense_graph_partition.core.evaluation import partition_density
+from dense_graph_partition.core.graph_io import load_ground_truth_graph_json, partition_to_json
 from dense_graph_partition.core.types import Partition
 from dense_graph_partition.experiments.run_tasks import run_tasks
-from dense_graph_partition.experiments.runner import AlgorithmSpec, graph_metadata, AlgorithmTask, run_algorithm
+from dense_graph_partition.experiments.runner import AlgorithmSpec, AlgorithmTask, graph_metadata, partition_stats, run_algorithm
 
 
 @dataclass(frozen=True)
 class GroundTruthTask(AlgorithmTask):
-    mu: float
+    """
+    Represents one ground-truth evaluation task.
+
+    Attributes:
+        ground_truth (Partition): Ground-truth partition of the graph.
+        community_size_class (str): Community size regime.
+        generation_metadata (dict[str, object]): Metadata stored during graph generation.
+    """
     ground_truth: Partition
+    community_size_class: str
+    generation_metadata: dict[str, object]
+
+
+def ground_truth_metadata(task: GroundTruthTask) -> dict[str, object]:
+    """
+    Computes metadata and statistics of the ground-truth partition.
+
+    Args:
+        task (GroundTruthTask): Ground-truth evaluation task.
+
+    Returns:
+        dict[str, object]: Ground-truth metadata and statistics.
+    """
+    stats = partition_stats(task.ground_truth)
+
+    return {
+        "community_size_class": task.community_size_class,
+        "ground_truth_density": partition_density(task.graph, task.ground_truth),
+        "ground_truth_num_clusters": stats["num_clusters"],
+        "ground_truth_max_cluster_size": stats["max_cluster_size"],
+        "ground_truth_avg_cluster_size": stats["avg_cluster_size"],
+        "ground_truth_partition": partition_to_json(task.ground_truth),
+        **task.generation_metadata,
+    }
 
 
 def evaluate_ground_truth_task(task: GroundTruthTask) -> list[dict[str, object]]:
@@ -25,8 +58,7 @@ def evaluate_ground_truth_task(task: GroundTruthTask) -> list[dict[str, object]]
     """
     metadata = {
         **graph_metadata(task),
-        "mu": task.mu,
-        "ground_truth_num_clusters": len(task.ground_truth),
+        **ground_truth_metadata(task),
     }
 
     rows: list[dict[str, object]] = []
@@ -40,7 +72,7 @@ def evaluate_ground_truth_task(task: GroundTruthTask) -> list[dict[str, object]]
 
 def build_ground_truth_tasks(data_root: Path, algorithms: list[AlgorithmSpec]) -> list[GroundTruthTask]:
     """
-    Builds ground-truth evaluation tasks for all random partition graph instances.
+    Builds ground-truth evaluation tasks for all JSON instances below the given data root.
 
     Args:
         data_root (Path): Root directory containing ground-truth graph instances.
@@ -49,51 +81,48 @@ def build_ground_truth_tasks(data_root: Path, algorithms: list[AlgorithmSpec]) -
     Returns:
         list[GroundTruthTask]: Ground-truth evaluation tasks.
     """
-    tasks: list[GroundTruthTask] = []
-
-    algorithm_tuple = tuple(algorithms)
-
     if not data_root.exists():
         raise FileNotFoundError(f"Ground-truth data directory does not exist: {data_root}")
 
-    for size_class_dir in sorted(data_root.iterdir()):
-        if not size_class_dir.is_dir():
-            continue
+    instance_paths = sorted(data_root.rglob("*.json"))
 
-        size_class = size_class_dir.name
+    if not instance_paths:
+        raise FileNotFoundError(f"No ground-truth JSON instances found below {data_root}")
 
-        for graph_type_dir in sorted(size_class_dir.iterdir()):
-            if not graph_type_dir.is_dir():
-                continue
+    algorithm_tuple = tuple(algorithms)
 
-            graph_type = graph_type_dir.name
+    tasks: list[GroundTruthTask] = []
 
-            for regime_dir in sorted(graph_type_dir.iterdir()):
-                if not regime_dir.is_dir():
-                    continue
+    for instance_path in instance_paths:
+        instance = load_ground_truth_graph_json(instance_path)
 
-                regime = regime_dir.name
+        metadata = instance.metadata
 
-                for mu_dir in sorted(regime_dir.iterdir()):
-                    if not mu_dir.is_dir():
-                        continue
+        try:
+            size_class = str(metadata["size_class"])
+            graph_type = str(metadata["graph_type"])
+            regime = str(metadata["regime"])
+            community_size_class = str(metadata["community_size_class"])
+        except KeyError as exc:
+            raise ValueError(f"Missing generation metadata {exc!s} in instance {instance_path}") from exc
 
-                    for instance_path in sorted(mu_dir.glob("*.json")):
-                        instance = load_ground_truth_graph_json(instance_path)
+        dataset = f"{size_class}_{graph_type}_{regime}_communities_{community_size_class}"
 
-                        tasks.append(
-                            GroundTruthTask(
-                                dataset=f"{size_class}_{graph_type}_{regime}_mu_{instance.mu}",
-                                size_class=size_class,
-                                graph_type=graph_type,
-                                regime=regime,
-                                instance_name=instance.name,
-                                graph=instance.graph,
-                                mu=instance.mu,
-                                ground_truth=instance.ground_truth,
-                                algorithms=algorithm_tuple,
-                            )
-                        )
+
+        tasks.append(
+            GroundTruthTask(
+                dataset=dataset,
+                size_class=size_class,
+                graph_type=graph_type,
+                regime=regime,
+                instance_name=instance.name,
+                graph=instance.graph,
+                algorithms=algorithm_tuple,
+                ground_truth=instance.ground_truth,
+                community_size_class=community_size_class,
+                generation_metadata=metadata,
+            )
+        )
 
     return tasks
 
@@ -113,7 +142,7 @@ def run_ground_truth_tasks(tasks: list[GroundTruthTask], workers: int) -> list[d
         tasks=tasks,
         evaluate=evaluate_ground_truth_task,
         workers=workers,
-        describe=lambda task: f"{task.size_class} | {task.graph_type} | {task.regime} | mu={task.mu} | {task.instance_name}",
+        describe=lambda task: f"{task.size_class} | {task.graph_type} | {task.regime} | communities={task.community_size_class} | {task.instance_name}",
     )
 
     return [row for task_rows in task_results for row in task_rows]

@@ -25,10 +25,24 @@ class GenerationTask:
     n: int
     seed: int
 
+@dataclass(frozen=True)
+class GroundTruthInstanceSpec(InstanceSpec):
+    community_size_class: str
+
+
+@dataclass(frozen=True)
+class GroundTruthGenerationTask(GenerationTask):
+    community_size_class: str
+
 
 SIZE_RANGES = {
     "small": (50, 250),
     "large": (500, 1500),
+}
+
+COMMUNITY_SIZE_FRACTIONS = {
+    "small": 0.05,
+    "large": 0.20,
 }
 
 
@@ -91,6 +105,26 @@ def target_average_degree(n: int, regime: str) -> float:
         return max(16.0, 0.04 * n)
 
     raise ValueError(f"Unknown regime: {regime}")
+
+
+def target_community_size(n: int, community_size_class: str) -> int:
+    """
+    Returns the target community size for a graph.
+    Small communities contain approximately 5 percent of all vertices, while large communities contain approximately 20 percent.
+
+    Args:
+        n (int): Number of vertices.
+        community_size_class (str): Supported values are ``"small"`` and ``"large"``.
+
+    Returns:
+        int: Target community size.
+    """
+    try:
+        fraction = COMMUNITY_SIZE_FRACTIONS[community_size_class]
+    except KeyError as exc:
+        raise ValueError(f"Unknown community size class: {community_size_class}") from exc
+
+    return max(3, round(fraction * n))
 
 
 def generate_connected_instance(generator: GraphGenerator, seed: int, max_attempts: int = 1000, **generator_kwargs: object) -> nx.Graph:

@@ -17,7 +17,7 @@ class GraphInstance:
 @dataclass(frozen=True)
 class GroundTruthGraphInstance(GraphInstance):
     ground_truth: Partition
-    mu: float
+    metadata: dict[str, object]
 
 
 def load_graph_json(path: Path) -> GraphInstance:
@@ -68,7 +68,7 @@ def load_ground_truth_graph_json(path: Path) -> GroundTruthGraphInstance:
         name=data["name"],
         graph=graph,
         ground_truth=ground_truth,
-        mu=float(data["mu"]),
+        metadata=data.get("metadata", {}),
     )
 
 
@@ -90,9 +90,16 @@ def save_graph_json(G: nx.Graph, path: Path, name: str | None = None) -> None:
         file.write("\n")
 
 
-def save_ground_truth_graph_json(G: nx.Graph, path: Path, name: str, ground_truth: Partition,  mu: float) -> None:
+def save_ground_truth_graph_json(G: nx.Graph, path: Path, name: str, ground_truth: Partition,  metadata: dict[str, object] | None = None) -> None:
     """
     Saves a graph instance including its ground-truth partition.
+
+    Args:
+        G (nx.Graph): Graph to save.
+        path (Path): Output path.
+        name (str): Instance name.
+        ground_truth (Partition): Ground-truth partition.
+        metadata (dict[str, object] | None): Additional generator metadata.
     """
     data = {
         "name": name,
@@ -100,7 +107,7 @@ def save_ground_truth_graph_json(G: nx.Graph, path: Path, name: str, ground_trut
         "m": G.number_of_edges(),
         "edges": [list(edge) for edge in G.edges()],
         "ground_truth": [sorted(cluster) for cluster in ground_truth],
-        "mu": mu,
+        "metadata": metadata or {},
     }
 
     path.parent.mkdir(parents=True, exist_ok=True)
