@@ -219,4 +219,4 @@ echo
 echo "Installation completed successfully."
 echo
 echo "Activate the environment with:"
-echo "  source \"$SCRIPT_DIR/.venv/bin/activate\""
+echo "  source .venv/bin/activate\""
