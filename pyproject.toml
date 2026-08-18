@@ -15,6 +15,7 @@ dependencies = [
     "igraph",
     "numpy",
     "jinja2",
+    "matplotlib"
 ]
 
 [project.optional-dependencies]

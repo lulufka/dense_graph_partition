@@ -1,0 +1,4 @@
+{
+  "kapoce_executable": "/absolute/path/to/cluster_editing/build/heuristic",
+  "kapoce_config": "/absolute/path/to/cluster_editing/config/fast.ini"
+}
