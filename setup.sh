@@ -14,17 +14,6 @@ echo "Repository directory: $REPOSITORIES_DIR"
 echo "Local installation directory: $LOCAL_DIR"
 
 # ---------------------------------------------------------------------------
-# Check prerequisites
-# ---------------------------------------------------------------------------
-
-for command in git python3 uv cmake; do
-    if ! command -v "$command" >/dev/null 2>&1; then
-        echo "Error: '$command' is required but not installed."
-        exit 1
-    fi
-done
-
-# ---------------------------------------------------------------------------
 # Python environment
 # ---------------------------------------------------------------------------
 
@@ -54,7 +43,6 @@ fi
 cd igraph
 git checkout 1.0.0
 
-rm -rf build
 mkdir build
 cd build
 
@@ -81,7 +69,6 @@ fi
 
 cd libleidenalg
 
-rm -rf build
 mkdir build
 cd build
 
@@ -146,7 +133,6 @@ fi
 
 cd cluster_editing
 
-rm -rf build
 mkdir build
 cd build
 
