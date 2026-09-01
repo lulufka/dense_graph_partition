@@ -1,3 +1,4 @@
+import math
 import random
 from dataclasses import dataclass
 from pathlib import Path
@@ -41,9 +42,12 @@ SIZE_RANGES = {
 }
 
 COMMUNITY_SIZE_FRACTIONS = {
-    "small": 0.05,
-    "large": 0.20,
+    "small": 0.1,
+    "large": 0.2,
 }
+
+TINY_COMMUNITY_REFERENCE_NOISE = 0.05
+GAUSSIAN_VARIANCE_FACTOR = 2.0
 
 
 def sample_sizes(count: int, n_min: int, n_max: int, seed: int) -> list[int]:
@@ -107,24 +111,51 @@ def target_average_degree(n: int, regime: str) -> float:
     raise ValueError(f"Unknown regime: {regime}")
 
 
-def target_community_size(n: int, community_size_class: str) -> int:
+def target_community_size(n: int, community_size_class: str, regime: str) -> int:
     """
     Returns the target community size for a graph.
-    Small communities contain approximately 5 percent of all vertices, while large communities contain approximately 20 percent.
+    Small communities contain approximately 10 percent of all vertices, while large communities contain approximately 20 percent.
+    Tiny communities are only supported for large graph instances. Their target size is chosen as the smallest integer size that keeps
+    the intra-community edge probability feasible for the lowest noise level used in the ground-truth experiment.
 
     Args:
         n (int): Number of vertices.
-        community_size_class (str): Supported values are ``"small"`` and ``"large"``.
+        community_size_class (str): Supported values are `"tiny"``, ``"small"``, and ``"large"``.
+        regime (str): Density regime. Supported values are ``"sparse"`` and ``"dense"``.
 
     Returns:
         int: Target community size.
     """
-    try:
+    if community_size_class in COMMUNITY_SIZE_FRACTIONS:
         fraction = COMMUNITY_SIZE_FRACTIONS[community_size_class]
-    except KeyError as exc:
-        raise ValueError(f"Unknown community size class: {community_size_class}") from exc
+        return max(3, round(fraction * n))
 
-    return max(3, round(fraction * n))
+    if community_size_class != "tiny":
+        raise ValueError(f"Unknown community size class: {community_size_class}")
+
+    if n < SIZE_RANGES["large"][0]:
+        raise ValueError(f"Tiny communities are only supported for large graphs, got n={n}.")
+
+    if regime == "sparse":
+        return 12
+
+    if regime == "dense":
+        target_degree = target_average_degree(
+            n=n,
+            regime=regime,
+        )
+
+        expected_internal_degree = (
+                (1.0 - TINY_COMMUNITY_REFERENCE_NOISE)
+                * target_degree
+        )
+
+        return math.ceil(
+            expected_internal_degree
+            + 1.0
+            - 1.0 / GAUSSIAN_VARIANCE_FACTOR
+        )
+
 
 
 def generate_connected_instance(generator: GraphGenerator, seed: int, max_attempts: int = 1000, **generator_kwargs: object) -> nx.Graph:

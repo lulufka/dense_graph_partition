@@ -18,24 +18,28 @@ LocalSearchRefiner = Callable[..., LocalSearchResult]
 @dataclass(frozen=True)
 class PipelineStepResult:
     """
-   Stores the result of one local-search step inside a pipeline.
+    Stores the result of one local-search step inside a pipeline.
 
-   Attributes:
-       step_index (int): Position of the step in the pipeline.
-       step_name (str): Name of the local-search refiner.
-       score_before (float): Partition density before this step.
-       score_after (float): Partition density after this step.
-       num_moves (int): Number of accepted operations in this step.
-       num_passes (int): Number of passes or iterations used by this step.
-       runtime (float): Runtime of this step in seconds.
-       num_clusters_before (int): Number of clusters before this step.
-       num_clusters_after (int): Number of clusters after this step.
-   """
+    Attributes:
+        step_index (int): Position of the step in the pipeline.
+        step_name (str): Name of the local-search refiner.
+        score_before (float): Partition density before this step.
+        score_after (float): Partition density after this step.
+        num_moves (int): Total number of accepted operations in this step.
+        num_improving_moves (int): Number of strictly improving moves.
+        num_zero_gain_moves (int): Number of accepted zero-gain moves.
+        num_passes (int): Number of passes or iterations used by this step.
+        runtime (float): Runtime of this step in seconds.
+        num_clusters_before (int): Number of clusters before this step.
+        num_clusters_after (int): Number of clusters after this step.
+    """
     step_index: int
     step_name: str
     score_before: float
     score_after: float
     num_moves: int
+    num_improving_moves: int
+    num_zero_gain_moves: int
     num_passes: int
     runtime: float
     num_clusters_before: int
@@ -60,6 +64,8 @@ class PipelineResult:
     Attributes:
         partition (Partition): Final partition after all pipeline steps.
         num_moves (int): Total number of accepted local-search operations.
+        num_improving_moves (int): Number of strictly improving moves.
+        num_zero_gain_moves (int): Number of accepted zero-gain moves.
         num_passes (int): Total number of passes over all pipeline steps.
         initial_score (float): Score before the first pipeline step.
         final_score (float): Score after the last pipeline step.
@@ -69,6 +75,8 @@ class PipelineResult:
     initial_score: float
     final_score: float
     num_moves: int
+    num_improving_moves: int
+    num_zero_gain_moves: int
     num_passes: int
     steps: list[PipelineStepResult]
 
@@ -139,7 +147,7 @@ def run_local_search_pipeline(G: nx.Graph, partition: Partition, pipeline: str, 
         G (nx.Graph): Input graph.
         partition (Partition): Initial partition.
         pipeline (str): Comma-separated local-search step names.
-        zero_gain_factor (int): Multiplier used to determine the maximum number of consecutive zero-gain moves.
+        zero_gain_factor (int): Multiplier used to determine the maximum total number of zero-gain moves accepted during one application.
         random_seed (int | None): Base seed used by randomized pipeline steps.
 
     Returns:
@@ -150,6 +158,8 @@ def run_local_search_pipeline(G: nx.Graph, partition: Partition, pipeline: str, 
     current_partition = partition
     initial_score = partition_density(G, current_partition)
     total_moves = 0
+    total_improving_moves = 0
+    total_zero_gain_moves = 0
     total_passes = 0
     step_results: list[PipelineStepResult] = []
 
@@ -180,17 +190,39 @@ def run_local_search_pipeline(G: nx.Graph, partition: Partition, pipeline: str, 
         clusters_after = partition_num_clusters(result.partition)
 
         step_results.append(
-            PipelineStepResult(step_index, step_name, score_before, score_after, result.num_moves, result.num_passes, runtime, clusters_before, clusters_after)
+            PipelineStepResult(
+                step_index=step_index,
+                step_name=step_name,
+                score_before=score_before,
+                score_after=score_after,
+                num_moves=result.num_moves,
+                num_improving_moves=result.num_improving_moves,
+                num_zero_gain_moves=result.num_zero_gain_moves,
+                num_passes=result.num_passes,
+                runtime=runtime,
+                num_clusters_before=clusters_before,
+                num_clusters_after=clusters_after,
+            )
         )
 
         current_partition = result.partition
         total_moves += result.num_moves
+        total_improving_moves += result.num_improving_moves
+        total_zero_gain_moves += result.num_zero_gain_moves
         total_passes += result.num_passes
 
     final_score = partition_density(G, current_partition)
 
-    return PipelineResult(current_partition, initial_score, final_score, total_moves, total_passes, step_results)
-
+    return PipelineResult(
+        partition=current_partition,
+        initial_score=initial_score,
+        final_score=final_score,
+        num_moves=total_moves,
+        num_improving_moves=total_improving_moves,
+        num_zero_gain_moves=total_zero_gain_moves,
+        num_passes=total_passes,
+        steps=step_results,
+    )
 
 def offset_step_results(steps: list[PipelineStepResult], offset: int) -> list[PipelineStepResult]:
     """
@@ -203,6 +235,8 @@ def offset_step_results(steps: list[PipelineStepResult], offset: int) -> list[Pi
             score_before=step.score_before,
             score_after=step.score_after,
             num_moves=step.num_moves,
+            num_improving_moves=step.num_improving_moves,
+            num_zero_gain_moves=step.num_zero_gain_moves,
             num_passes=step.num_passes,
             runtime=step.runtime,
             num_clusters_before=step.num_clusters_before,

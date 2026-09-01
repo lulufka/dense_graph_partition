@@ -25,7 +25,7 @@ class LocalSearchExperiment:
         name (str): Human-readable experiment name.
         start_partition (str): Name of the start partition algorithm.
         pipeline (str): Comma-separated local-search pipeline.
-        zero_gain_factor (int): Multiplier used to determine the maximum number of consecutive zero-gain moves.
+        zero_gain_factor (int): Multiplier used to determine the maximum total number of zero-gain moves accepted during one application.
     """
     name: str
     start_partition: str
@@ -129,6 +129,8 @@ def build_raw_result_row(
         start_runtime: float,
         ls_runtime: float,
         num_moves: int,
+        num_improving_moves: int,
+        num_zero_gain_moves: int,
         num_passes: int,
 ) -> dict[str, Any]:
     graph = task.graph
@@ -151,6 +153,8 @@ def build_raw_result_row(
         "final_density": final_density,
         "improved": final_density > start_density,
         "num_moves": num_moves,
+        "num_improving_moves": num_improving_moves,
+        "num_zero_gain_moves": num_zero_gain_moves,
         "num_passes": num_passes,
         "start_runtime": start_runtime,
         "ls_runtime": ls_runtime,
@@ -191,6 +195,8 @@ def step_rows_from_pipeline_steps(
                 "score_before": step.score_before,
                 "score_after": step.score_after,
                 "num_moves": step.num_moves,
+                "num_improving_moves": step.num_improving_moves,
+                "num_zero_gain_moves": step.num_zero_gain_moves,
                 "num_passes": step.num_passes,
                 "runtime": step.runtime,
                 "num_clusters_before": step.num_clusters_before,
@@ -260,6 +266,8 @@ def evaluate_local_search_task(task: LocalSearchTask) -> tuple[list[dict[str, An
                     start_runtime=start_runtime,
                     ls_runtime=ls_runtime,
                     num_moves=ls_result.num_moves,
+                    num_improving_moves=ls_result.num_improving_moves,
+                    num_zero_gain_moves=ls_result.num_zero_gain_moves,
                     num_passes=ls_result.num_passes,
                 )
             )

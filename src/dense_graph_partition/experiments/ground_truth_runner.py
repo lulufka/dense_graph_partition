@@ -1,26 +1,68 @@
 from dataclasses import dataclass
 from pathlib import Path
+import networkx as nx
 
-from dense_graph_partition.core.evaluation import partition_density
+from dense_graph_partition.core.evaluation import partition_density, edge_density
 from dense_graph_partition.core.graph_io import load_ground_truth_graph_json, partition_to_json
 from dense_graph_partition.core.types import Partition
 from dense_graph_partition.experiments.run_tasks import run_tasks
-from dense_graph_partition.experiments.runner import AlgorithmSpec, AlgorithmTask, graph_metadata, partition_stats, run_algorithm
+from dense_graph_partition.experiments.runner import AlgorithmSpec, partition_stats, run_algorithm
 
 
 @dataclass(frozen=True)
-class GroundTruthTask(AlgorithmTask):
+class GroundTruthTask:
     """
     Represents one ground-truth evaluation task.
 
     Attributes:
-        ground_truth (Partition): Ground-truth partition of the graph.
-        community_size_class (str): Community size regime.
-        generation_metadata (dict[str, object]): Metadata stored during graph generation.
+        dataset (str): Dataset group name.
+        size_class (str): Graph size category.
+        graph_type (str): Graph generator type.
+        regime (str): Graph density regime.
+        community_size_class (str): Ground-truth community size category.
+        noise (float): Edge noise probability.
+        instance_name (str): Name of the graph instance.
+        graph (nx.Graph): Input graph.
+        ground_truth (Partition): Ground-truth partition.
+        algorithms (tuple[AlgorithmSpec, ...]): Algorithms to evaluate.
+        generation_metadata (dict[str, object]): Graph generation metadata.
     """
-    ground_truth: Partition
+
+    dataset: str
+    size_class: str
+    graph_type: str
+    regime: str
     community_size_class: str
+    noise: float
+    instance_name: str
+    graph: nx.Graph
+    ground_truth: Partition
+    algorithms: tuple[AlgorithmSpec, ...]
     generation_metadata: dict[str, object]
+
+
+def graph_metadata(task: GroundTruthTask) -> dict[str, object]:
+    """
+    Creates graph and dataset metadata for a ground-truth task.
+
+    Args:
+        task (GroundTruthTask): Ground-truth evaluation task.
+
+    Returns:
+        dict[str, object]: Graph and dataset metadata.
+    """
+    return {
+        "dataset": task.dataset,
+        "size_class": task.size_class,
+        "graph_type": task.graph_type,
+        "regime": task.regime,
+        "community_size_class": task.community_size_class,
+        "noise": task.noise,
+        "instance": task.instance_name,
+        "n": task.graph.number_of_nodes(),
+        "m": task.graph.number_of_edges(),
+        "edge_density": edge_density(task.graph),
+    }
 
 
 def ground_truth_metadata(task: GroundTruthTask) -> dict[str, object]:
@@ -36,7 +78,6 @@ def ground_truth_metadata(task: GroundTruthTask) -> dict[str, object]:
     stats = partition_stats(task.ground_truth)
 
     return {
-        "community_size_class": task.community_size_class,
         "ground_truth_density": partition_density(task.graph, task.ground_truth),
         "ground_truth_num_clusters": stats["num_clusters"],
         "ground_truth_max_cluster_size": stats["max_cluster_size"],
@@ -65,7 +106,7 @@ def evaluate_ground_truth_task(task: GroundTruthTask) -> list[dict[str, object]]
 
     for algorithm in task.algorithms:
         result = run_algorithm(G=task.graph, algorithm=algorithm, include_partition=True)
-        rows.append({**metadata, **result,})
+        rows.append({**metadata, **result})
 
     return rows
 
@@ -103,10 +144,11 @@ def build_ground_truth_tasks(data_root: Path, algorithms: list[AlgorithmSpec]) -
             graph_type = str(metadata["graph_type"])
             regime = str(metadata["regime"])
             community_size_class = str(metadata["community_size_class"])
+            noise = float(metadata["noise"])
         except KeyError as exc:
             raise ValueError(f"Missing generation metadata {exc!s} in instance {instance_path}") from exc
 
-        dataset = f"{size_class}_{graph_type}_{regime}_communities_{community_size_class}"
+        dataset = f"{size_class}_{graph_type}_{regime}_communities_{community_size_class}_noise_{noise:g}"
 
 
         tasks.append(
@@ -115,11 +157,12 @@ def build_ground_truth_tasks(data_root: Path, algorithms: list[AlgorithmSpec]) -
                 size_class=size_class,
                 graph_type=graph_type,
                 regime=regime,
+                community_size_class=community_size_class,
+                noise=noise,
                 instance_name=instance.name,
                 graph=instance.graph,
-                algorithms=algorithm_tuple,
                 ground_truth=instance.ground_truth,
-                community_size_class=community_size_class,
+                algorithms=algorithm_tuple,
                 generation_metadata=metadata,
             )
         )
@@ -142,7 +185,7 @@ def run_ground_truth_tasks(tasks: list[GroundTruthTask], workers: int) -> list[d
         tasks=tasks,
         evaluate=evaluate_ground_truth_task,
         workers=workers,
-        describe=lambda task: f"{task.size_class} | {task.graph_type} | {task.regime} | communities={task.community_size_class} | {task.instance_name}",
+        describe=lambda task: f"{task.size_class} | {task.graph_type} | {task.regime} | communities={task.community_size_class} | noise={task.noise:g} | {task.instance_name}",
     )
 
     return [row for task_rows in task_results for row in task_rows]
