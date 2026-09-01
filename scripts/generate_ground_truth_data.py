@@ -404,15 +404,9 @@ def parse_args() -> argparse.Namespace:
         help="Base seed for reproducible generation.",
     )
     parser.add_argument(
-        "--count",
-        type=int,
-        default=250,
-        help="Number of instances per configuration.",
-    )
-    parser.add_argument(
         "--workers",
         type=int,
-        default=50,
+        default=1,
         help="Number of worker processes. Use 1 for sequential execution.",
     )
 
@@ -422,7 +416,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    sizes_by_class = sample_ground_truth_sizes_by_class(count=args.count, seed=args.seed)
+    sizes_by_class = sample_ground_truth_sizes_by_class(count=50, seed=args.seed)
 
     tasks = build_generation_tasks(
         output_dir=args.output_dir,

@@ -60,3 +60,40 @@ source .venv/bin/activate
 ```
 
 The activation script also configures the library paths required by the customized Leiden implementation.
+
+## Data Generation
+
+The experiments in this repository use two different groups of synthetic datasets:
+
+- synthetic Powerlaw Cluster and Erdős–Rényi graphs used for the development and configuration of the MDGP local-search heuristic,
+- Gaussian random partition graphs with a known ground-truth partition used to compare the resulting graph partitions with an underlying community structure.
+
+All datasets can be generated directly from the scripts contained in the repository.
+
+```bash
+python scripts/generate_data.py
+python scripts/generate_ground_truth_data.py
+```
+
+## Experiment 1: Start Partitions
+
+The first experiment evaluates the different start-partition algorithms.
+
+By default, the script only runs on the small graph instances:
+
+```bash
+python scripts/experiment1_baseline.py
+```
+
+To run the experiment on both small and large instances, explicitly set the data root to the complete generated dataset:
+
+```bash
+python scripts/experiment1_baseline.py \
+    --data-root data/generated
+```
+
+The results are written to:
+
+```text
+results/experiment1/
+```

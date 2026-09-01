@@ -44,7 +44,7 @@ def build_single_dataset(data_dir: Path) -> DatasetSpec:
 
 def build_datasets(data_root: Path) -> list[DatasetSpec]:
     """
-    Enumerates generated datasets used by the experiments. If data_root directly contains JSON files, it is treated as one dataset.
+    Enumerates generated datasets used by the experiments.
 
     Args:
         data_root (Path): Root directory containing generated graph instances.
@@ -57,20 +57,21 @@ def build_datasets(data_root: Path) -> list[DatasetSpec]:
 
     datasets: list[DatasetSpec] = []
 
-    for size_class in ["small", "large"]:
+    if data_root.name in {"small", "large"}:
+        size_classes = [data_root.name]
+        root = data_root.parent
+    else:
+        size_classes = ["small", "large"]
+        root = data_root
+
+    for size_class in size_classes:
         for graph_type in ["powerlaw", "er"]:
             for regime in ["sparse", "dense"]:
-                path = data_root / size_class / graph_type / regime
+                path = root / size_class / graph_type / regime
                 name = f"{graph_type}_{regime}_{size_class}"
 
                 datasets.append(
-                    DatasetSpec(
-                        path=path,
-                        name=name,
-                        size_class=size_class,
-                        graph_type=graph_type,
-                        regime=regime,
-                    )
+                    DatasetSpec(path=path, name=name, size_class=size_class, graph_type=graph_type, regime=regime)
                 )
 
     return datasets

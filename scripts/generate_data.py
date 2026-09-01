@@ -148,7 +148,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--workers",
         type=int,
-        default=50,
+        default=1,
         help=("Number of worker processes. Use 1 to disable parallel execution."),
     )
     return parser.parse_args()
@@ -157,7 +157,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    sizes_by_class = sample_sizes_by_class(count=250, seed=args.seed,)
+    sizes_by_class = sample_sizes_by_class(count=50, seed=args.seed,)
 
     tasks = build_generation_tasks(
         output_dir=args.output_dir,

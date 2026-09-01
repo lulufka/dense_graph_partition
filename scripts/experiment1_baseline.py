@@ -14,7 +14,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data-root",
         type=Path,
-        default=Path("data/generated"),
+        default=Path("data/generated/small"),
         help="Root directory containing graph instances",
     )
     parser.add_argument(
