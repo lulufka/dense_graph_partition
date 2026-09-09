@@ -140,21 +140,11 @@ def target_community_size(n: int, community_size_class: str, regime: str) -> int
         return 12
 
     if regime == "dense":
-        target_degree = target_average_degree(
-            n=n,
-            regime=regime,
-        )
+        target_degree = target_average_degree(n=n, regime=regime)
 
-        expected_internal_degree = (
-                (1.0 - TINY_COMMUNITY_REFERENCE_NOISE)
-                * target_degree
-        )
+        expected_internal_degree = (1.0 - TINY_COMMUNITY_REFERENCE_NOISE) * target_degree
 
-        return math.ceil(
-            expected_internal_degree
-            + 1.0
-            - 1.0 / GAUSSIAN_VARIANCE_FACTOR
-        )
+        return math.ceil(expected_internal_degree + 1.0 - 1.0 / GAUSSIAN_VARIANCE_FACTOR)
 
 
 

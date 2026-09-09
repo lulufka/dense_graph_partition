@@ -121,7 +121,7 @@ def kapoce_partition(G: nx.Graph, executable_path: Path, config_path: Path) -> P
     cmd = [str(executable_path), "-c", str(config_path)]
 
     result = subprocess.run(
-        cmd, input=input_data, text=True, capture_output=True, cwd=executable_path.parent, timeout=300
+        cmd, input=input_data, text=True, capture_output=True, cwd=executable_path.parent, timeout=1000
     )
 
     if result.returncode != 0:

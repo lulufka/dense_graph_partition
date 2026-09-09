@@ -46,6 +46,5 @@ def main() -> None:
     write_raw_results(raw_results=pd.DataFrame(raw_rows), results_dir=args.results_dir)
 
 
-
 if __name__ == "__main__":
     main()

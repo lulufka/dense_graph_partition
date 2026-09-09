@@ -16,7 +16,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data-root",
         type=Path,
-        default=Path("data/generated"),
+        default=Path("data/generated/small"),
         help="Root directory containing graph instances",
     )
     parser.add_argument(
@@ -28,7 +28,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--runs",
         type=int,
-        default=15,
+        default=1,
         help="Number of random runs per instance and experiment.",
     )
     parser.add_argument(
@@ -40,7 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--workers",
         type=int,
-        default=50,
+        default=1,
         help="Number of parallel worker processes.",
     )
     return parser.parse_args()
@@ -48,7 +48,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    experiments = build_local_search_experiments(["maximum_matching_edge_cover"]) # build_local_search_experiments(STARTPARTITIONS)
+    experiments = build_local_search_experiments(STARTPARTITIONS) # build_local_search_experiments(["maximum_matching_edge_cover"])
     tasks = build_local_search_tasks(args.data_root, experiments, args.runs, args.base_seed)
     print(f"Prepared {len(tasks)} local-search tasks.")
     raw_rows, step_rows = run_local_search_tasks(tasks, args.workers)
