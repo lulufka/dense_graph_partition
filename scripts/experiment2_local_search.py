@@ -139,7 +139,7 @@ def main() -> None:
         runs = args.runs or 10
 
         experiments = build_extra_operator_experiments(
-            start_partitions=["maximum_matching_edge_cover"],
+            start_partitions=["maximum_matching"],
             plateau_steps=4,
             zero_gain_factor=4,
         )
@@ -152,7 +152,7 @@ def main() -> None:
     elif args.experiment == "independent_runs":
         run_local_search_experiment(
             args=args,
-            start_partitions=["maximum_matching_edge_cover"],
+            start_partitions=["maximum_matching"],
             plateau_steps=4,
             zero_gain_factors=(4,),
             include_move_operators=False,
