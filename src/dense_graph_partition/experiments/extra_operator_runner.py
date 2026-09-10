@@ -50,10 +50,10 @@ class BranchingLocalSearchTask(GraphTask):
 
 
 
-def build_extra_operator_experiments(start_partitions: list[str]) -> list[BranchingLocalSearchExperiment]:
+def build_extra_operator_experiments(start_partitions: list[str], plateau_steps: int = 4, zero_gain_factor: int = 4) -> list[BranchingLocalSearchExperiment]:
     experiments: list[BranchingLocalSearchExperiment] = []
 
-    shared_prefix = ",".join(["move_plateau"] * 4)
+    shared_prefix = ",".join(["move_plateau"] * plateau_steps)
 
     suffixes = (
         "",
@@ -70,6 +70,7 @@ def build_extra_operator_experiments(start_partitions: list[str]) -> list[Branch
                 start_partition=start_partition,
                 shared_prefix=shared_prefix,
                 suffixes=suffixes,
+                zero_gain_factor=zero_gain_factor,
             )
         )
 

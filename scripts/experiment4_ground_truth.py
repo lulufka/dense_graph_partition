@@ -16,7 +16,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data-root",
         type=Path,
-        default=Path("data/ground_truth"),
+        default=Path("data/ground_truth/small"),
         help="Root directory containing ground-truth graph instances.",
     )
     parser.add_argument(
@@ -28,7 +28,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--workers",
         type=int,
-        default=50,
+        default=1,
         help="Number of parallel worker processes.",
     )
 

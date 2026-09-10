@@ -61,41 +61,45 @@ def group_experiments_by_start_partition(experiments: list[LocalSearchExperiment
     return {start_partition: tuple(group) for start_partition, group in grouped.items()}
 
 
-def build_local_search_experiments(start_partitions: list[str]) -> list[LocalSearchExperiment]:
+def build_local_search_experiments(start_partitions: list[str], plateau_steps: int, zero_gain_factors: tuple[int, ...], include_move_operators: bool = False) -> list[LocalSearchExperiment]:
     """
-    Builds all local-search experiment configurations.
+    Builds local-search experiment configurations.
 
     Args:
-        start_partitions (list[str]): Names of the start-partition algorithms.
+        start_partitions: Names of the start-partition algorithms.
+        plateau_steps: Number of consecutive move_plateau applications.
+        zero_gain_factors: Zero-gain factors to evaluate.
+        include_move_operators: Whether move_first and move_best are included.
 
     Returns:
-        list[LocalSearchExperiment]: Concrete local-search experiment configurations.
+        Concrete local-search experiment configurations.
     """
     experiments: list[LocalSearchExperiment] = []
 
-    plateau_pipeline = ",".join(["move_plateau"] * 10)
+    plateau_pipeline = ",".join(["move_plateau"] * plateau_steps)
 
     for start_partition in start_partitions:
-        # experiments.append(
-        #     LocalSearchExperiment(
-        #         name=f"{start_partition}_move_first",
-        #         start_partition=start_partition,
-        #         pipeline="move_first",
-        #     )
-        # )
-#
-        # experiments.append(
-        #     LocalSearchExperiment(
-        #         name=f"{start_partition}_move_best",
-        #         start_partition=start_partition,
-        #         pipeline="move_best",
-        #     )
-        # )
-
-        for factor in (2,):
+        if include_move_operators:
             experiments.append(
                 LocalSearchExperiment(
-                    name=(f"{start_partition}_move_plateau10_zg{factor}"),
+                    name=f"{start_partition}_move_first",
+                    start_partition=start_partition,
+                    pipeline="move_first",
+                )
+            )
+
+            experiments.append(
+                LocalSearchExperiment(
+                    name=f"{start_partition}_move_best",
+                    start_partition=start_partition,
+                    pipeline="move_best",
+                )
+            )
+
+        for factor in zero_gain_factors:
+            experiments.append(
+                LocalSearchExperiment(
+                    name=f"{start_partition}_move_plateau{plateau_steps}_zg{factor}",
                     start_partition=start_partition,
                     pipeline=plateau_pipeline,
                     zero_gain_factor=factor,
