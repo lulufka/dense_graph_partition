@@ -37,6 +37,9 @@ fi
 
 source .venv/bin/activate
 
+echo "Installing Python build tools..."
+python -m pip install --upgrade pip setuptools wheel
+
 echo "Installing Python dependencies..."
 python -m pip install -e ".[dev]"
 
