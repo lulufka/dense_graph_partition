@@ -14,6 +14,17 @@ echo "Repository directory: $REPOSITORIES_DIR"
 echo "Local installation directory: $LOCAL_DIR"
 
 # ---------------------------------------------------------------------------
+# Check prerequisites
+# ---------------------------------------------------------------------------
+
+for command in git python3 cmake pip; do
+    if ! command -v "$command" >/dev/null 2>&1; then
+        echo "Error: '$command' is required but not installed."
+        exit 1
+    fi
+done
+
+# ---------------------------------------------------------------------------
 # Python environment
 # ---------------------------------------------------------------------------
 
@@ -27,7 +38,7 @@ fi
 source .venv/bin/activate
 
 echo "Installing Python dependencies..."
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 
 # ---------------------------------------------------------------------------
 # Native igraph 1.0.0
@@ -41,19 +52,22 @@ if [ ! -d "igraph" ]; then
 fi
 
 cd igraph
+git fetch --tags
 git checkout 1.0.0
 
+rm -rf build
 mkdir build
 cd build
 
 echo "Building igraph..."
+
 cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="$LOCAL_DIR" \
     -DBUILD_SHARED_LIBS=ON \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 
-cmake --build . -j 8
+cmake --build . --parallel
 cmake --install .
 
 # ---------------------------------------------------------------------------
@@ -69,15 +83,18 @@ fi
 
 cd libleidenalg
 
+rm -rf build
 mkdir build
 cd build
 
 echo "Building libleidenalg..."
+
 cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX="$LOCAL_DIR"
+    -DCMAKE_INSTALL_PREFIX="$LOCAL_DIR" \
+    -DCMAKE_PREFIX_PATH="$LOCAL_DIR"
 
-cmake --build . -j 8
+cmake --build . --parallel
 cmake --install .
 
 # ---------------------------------------------------------------------------
@@ -87,10 +104,16 @@ cmake --install .
 export CPLUS_INCLUDE_PATH="$LOCAL_DIR/include:${CPLUS_INCLUDE_PATH:-}"
 export C_INCLUDE_PATH="$LOCAL_DIR/include:${C_INCLUDE_PATH:-}"
 export LIBRARY_PATH="$LOCAL_DIR/lib:${LIBRARY_PATH:-}"
-export DYLD_LIBRARY_PATH="$LOCAL_DIR/lib:${DYLD_LIBRARY_PATH:-}"
 
-# Store variables in virtual environment activation script so that they are
-# also available after setup.sh has finished.
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    export DYLD_LIBRARY_PATH="$LOCAL_DIR/lib:${DYLD_LIBRARY_PATH:-}"
+else
+    export LD_LIBRARY_PATH="$LOCAL_DIR/lib:${LD_LIBRARY_PATH:-}"
+fi
+
+# Store variables in the virtual-environment activation script so that they
+# are also available after setup.sh has finished.
+
 ACTIVATE_FILE="$SCRIPT_DIR/.venv/bin/activate"
 
 if ! grep -q "MDGP_LOCAL_LIBRARIES" "$ACTIVATE_FILE"; then
@@ -100,9 +123,38 @@ if ! grep -q "MDGP_LOCAL_LIBRARIES" "$ACTIVATE_FILE"; then
 export CPLUS_INCLUDE_PATH="$LOCAL_DIR/include:\${CPLUS_INCLUDE_PATH:-}"
 export C_INCLUDE_PATH="$LOCAL_DIR/include:\${C_INCLUDE_PATH:-}"
 export LIBRARY_PATH="$LOCAL_DIR/lib:\${LIBRARY_PATH:-}"
-export DYLD_LIBRARY_PATH="$LOCAL_DIR/lib:\${DYLD_LIBRARY_PATH:-}"
+
+if [[ "\$(uname -s)" == "Darwin" ]]; then
+    export DYLD_LIBRARY_PATH="$LOCAL_DIR/lib:\${DYLD_LIBRARY_PATH:-}"
+else
+    export LD_LIBRARY_PATH="$LOCAL_DIR/lib:\${LD_LIBRARY_PATH:-}"
+fi
 EOF
 fi
+
+# ---------------------------------------------------------------------------
+# Check native Leiden dependencies
+# ---------------------------------------------------------------------------
+
+echo
+echo "Checking native Leiden dependencies..."
+
+if [ ! -d "$LOCAL_DIR/include/igraph" ]; then
+    echo "Error: igraph headers not found in $LOCAL_DIR/include/igraph"
+    exit 1
+fi
+
+if ! ls "$LOCAL_DIR/lib"/libigraph* >/dev/null 2>&1; then
+    echo "Error: igraph library not found in $LOCAL_DIR/lib"
+    exit 1
+fi
+
+if ! ls "$LOCAL_DIR/lib"/liblibleidenalg* >/dev/null 2>&1; then
+    echo "Error: libleidenalg library not found in $LOCAL_DIR/lib"
+    exit 1
+fi
+
+echo "Native Leiden dependencies: OK"
 
 # ---------------------------------------------------------------------------
 # Custom Python leidenalg
@@ -117,8 +169,12 @@ fi
 
 cd leidenalg
 
+echo
 echo "Installing custom leidenalg..."
-pip install -v .
+
+python -m pip install \
+    --no-build-isolation \
+    -v .
 
 # ---------------------------------------------------------------------------
 # KaPoCE
@@ -129,25 +185,33 @@ cd "$REPOSITORIES_DIR"
 if [ ! -d "cluster_editing" ]; then
     echo "Cloning KaPoCE..."
     git clone --recursive https://github.com/lulufka/cluster_editing.git
+else
+    git -C cluster_editing submodule update --init --recursive
 fi
 
 cd cluster_editing
 
+rm -rf build
 mkdir build
 cd build
 
+echo
 echo "Building KaPoCE..."
+
 cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
-cmake --build . -j 8
+cmake --build . --parallel
 
 # ---------------------------------------------------------------------------
 # Local project configuration
 # ---------------------------------------------------------------------------
 
 cd "$SCRIPT_DIR"
+
+echo
+echo "Writing config.local.json..."
 
 cat > config.local.json <<EOF
 {
@@ -184,6 +248,7 @@ config = load_kapoce_config()
 assert config.executable_path.exists(), (
     f"KaPoCE executable not found: {config.executable_path}"
 )
+
 assert config.config_path.exists(), (
     f"KaPoCE config not found: {config.config_path}"
 )
@@ -201,8 +266,12 @@ assert sum(len(cluster) for cluster in partition) == graph.number_of_nodes()
 print("KaPoCE: OK")
 PY
 
+# ---------------------------------------------------------------------------
+# Done
+# ---------------------------------------------------------------------------
+
 echo
 echo "Installation completed successfully."
 echo
 echo "Activate the environment with:"
-echo "  source .venv/bin/activate\""
+echo "  source .venv/bin/activate"
