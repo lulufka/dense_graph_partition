@@ -27,7 +27,7 @@ fi
 source .venv/bin/activate
 
 echo "Installing Python dependencies..."
-uv pip install -e ".[dev]"
+pip install -e ".[dev]"
 
 # ---------------------------------------------------------------------------
 # Native igraph 1.0.0
@@ -118,7 +118,7 @@ fi
 cd leidenalg
 
 echo "Installing custom leidenalg..."
-uv pip install -v .
+pip install -v .
 
 # ---------------------------------------------------------------------------
 # KaPoCE
