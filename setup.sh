@@ -98,17 +98,43 @@ cmake --build . --parallel
 cmake --install .
 
 # ---------------------------------------------------------------------------
+# Native library paths
+# ---------------------------------------------------------------------------
+
+LIB_DIRS=()
+
+if [ -d "$LOCAL_DIR/lib" ]; then
+    LIB_DIRS+=("$LOCAL_DIR/lib")
+fi
+
+if [ -d "$LOCAL_DIR/lib64" ]; then
+    LIB_DIRS+=("$LOCAL_DIR/lib64")
+fi
+
+if [ ${#LIB_DIRS[@]} -eq 0 ]; then
+    echo "Error: no native library directory found in $LOCAL_DIR"
+    exit 1
+fi
+
+LIB_PATH="$(IFS=:; echo "${LIB_DIRS[*]}")"
+
+echo "Native library directories:"
+for dir in "${LIB_DIRS[@]}"; do
+    echo "  $dir"
+done
+
+# ---------------------------------------------------------------------------
 # Environment variables required by custom leidenalg
 # ---------------------------------------------------------------------------
 
 export CPLUS_INCLUDE_PATH="$LOCAL_DIR/include:${CPLUS_INCLUDE_PATH:-}"
 export C_INCLUDE_PATH="$LOCAL_DIR/include:${C_INCLUDE_PATH:-}"
-export LIBRARY_PATH="$LOCAL_DIR/lib:${LIBRARY_PATH:-}"
+export LIBRARY_PATH="$LIB_PATH:${LIBRARY_PATH:-}"
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
-    export DYLD_LIBRARY_PATH="$LOCAL_DIR/lib:${DYLD_LIBRARY_PATH:-}"
+    export DYLD_LIBRARY_PATH="$LIB_PATH:${DYLD_LIBRARY_PATH:-}"
 else
-    export LD_LIBRARY_PATH="$LOCAL_DIR/lib:${LD_LIBRARY_PATH:-}"
+    export LD_LIBRARY_PATH="$LIB_PATH:${LD_LIBRARY_PATH:-}"
 fi
 
 # Store variables in the virtual-environment activation script so that they
@@ -122,12 +148,12 @@ if ! grep -q "MDGP_LOCAL_LIBRARIES" "$ACTIVATE_FILE"; then
 # MDGP_LOCAL_LIBRARIES
 export CPLUS_INCLUDE_PATH="$LOCAL_DIR/include:\${CPLUS_INCLUDE_PATH:-}"
 export C_INCLUDE_PATH="$LOCAL_DIR/include:\${C_INCLUDE_PATH:-}"
-export LIBRARY_PATH="$LOCAL_DIR/lib:\${LIBRARY_PATH:-}"
+export LIBRARY_PATH="$LIB_PATH:\${LIBRARY_PATH:-}"
 
 if [[ "\$(uname -s)" == "Darwin" ]]; then
-    export DYLD_LIBRARY_PATH="$LOCAL_DIR/lib:\${DYLD_LIBRARY_PATH:-}"
+    export DYLD_LIBRARY_PATH="$LIB_PATH:\${DYLD_LIBRARY_PATH:-}"
 else
-    export LD_LIBRARY_PATH="$LOCAL_DIR/lib:\${LD_LIBRARY_PATH:-}"
+    export LD_LIBRARY_PATH="$LIB_PATH:\${LD_LIBRARY_PATH:-}"
 fi
 EOF
 fi
@@ -144,13 +170,31 @@ if [ ! -d "$LOCAL_DIR/include/igraph" ]; then
     exit 1
 fi
 
-if ! ls "$LOCAL_DIR/lib"/libigraph* >/dev/null 2>&1; then
-    echo "Error: igraph library not found in $LOCAL_DIR/lib"
+if [ ! -d "$LOCAL_DIR/include/libleidenalg" ]; then
+    echo "Error: libleidenalg headers not found in $LOCAL_DIR/include/libleidenalg"
     exit 1
 fi
 
-if ! ls "$LOCAL_DIR/lib"/liblibleidenalg* >/dev/null 2>&1; then
-    echo "Error: libleidenalg library not found in $LOCAL_DIR/lib"
+IGRAPH_LIBRARY_FOUND=false
+LIBLEIDENALG_LIBRARY_FOUND=false
+
+for dir in "${LIB_DIRS[@]}"; do
+    if compgen -G "$dir/libigraph*" > /dev/null; then
+        IGRAPH_LIBRARY_FOUND=true
+    fi
+
+    if compgen -G "$dir/liblibleidenalg*" > /dev/null; then
+        LIBLEIDENALG_LIBRARY_FOUND=true
+    fi
+done
+
+if [ "$IGRAPH_LIBRARY_FOUND" != true ]; then
+    echo "Error: igraph library not found in $LOCAL_DIR/lib or $LOCAL_DIR/lib64"
+    exit 1
+fi
+
+if [ "$LIBLEIDENALG_LIBRARY_FOUND" != true ]; then
+    echo "Error: libleidenalg library not found in $LOCAL_DIR/lib or $LOCAL_DIR/lib64"
     exit 1
 fi
 
