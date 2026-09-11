@@ -416,7 +416,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
-    sizes_by_class = sample_ground_truth_sizes_by_class(count=50, seed=args.seed)
+    sizes_by_class = sample_ground_truth_sizes_by_class(count=25, seed=args.seed)
 
     tasks = build_generation_tasks(
         output_dir=args.output_dir,
